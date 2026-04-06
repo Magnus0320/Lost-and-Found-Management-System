@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Registration{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Verify Your Email</h2>
+    <p>Please enter the OTP sent to your email to complete registration.</p>
+    <form method="POST" action="{{ url_for('verify_registration') }}" onsubmit="return validateOTP()">
+        <div class="form-group">
+            <label for="otp">OTP</label>
+            <input type="text" class="form-control" id="otp" name="otp" required>
+            <small id="otpHelp" class="form-text text-muted">Enter the 6-digit OTP sent to your email.</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Verify</button>
+    </form>
+    {% if error %}
+    <div class="alert alert-danger mt-3" role="alert">
+        {{ error }}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function validateOTP() {
+        const otp = document.getElementById("otp").value;
+
+        // Check if OTP is a 6-digit number
+        const otpPattern = /^\d{6}$/;
+        if (!otpPattern.test(otp)) {
+            alert("Please enter a valid 6-digit OTP.");
+            return false;
+        }
+
+        return true;
+    }
+</script>
+{% endblock %}

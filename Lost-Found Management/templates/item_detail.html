@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Item Details{% endblock %}
+
+{% block content %}
+<h2 class="mt-4">{{ item.name }}</h2>
+
+<img src="{{ url_for('static', filename='images/' + item.image_file) }}"
+     alt="{{ item.name }}"
+     class="img-fluid mb-3"
+     style="max-width: 300px;">
+
+<p><strong>Description:</strong> {{ item.description }}</p>
+<p><strong>Category:</strong> {{ item.category.name }}</p>
+<p><strong>Date Lost/Found:</strong> {{ item.date.strftime('%Y-%m-%d') }}</p>
+<p><strong>Location:</strong> {{ item.location }}</p>
+
+<!-- Only one status now: Lost / Found -->
+<p><strong>Item Status (Lost/Found):</strong> {{ item.status|capitalize }}</p>
+
+{% if current_user.is_authenticated and current_user.id == item.user_id %}
+    <div class="mt-4 d-flex flex-wrap">
+        <!-- Edit button -->
+        <a href="{{ url_for('edit_item', item_id=item.id) }}"
+           class="btn btn-secondary mr-2 mb-2">
+            Edit Item
+        </a>
+
+        <!-- Delete button (normal size, no full-width) -->
+        <form action="{{ url_for('delete_item', item_id=item.id) }}"
+              method="POST"
+              class="mb-2"
+              onsubmit="return confirm('Are you sure you want to delete this item?');">
+            <button type="submit"
+                    class="btn btn-danger"
+                    style="width: auto; min-width: 130px;">
+                Delete Item
+            </button>
+        </form>
+    </div>
+{% endif %}
+
+<a href="{{ url_for('home_page') }}" class="btn btn-link mt-3">Back to Home</a>
+{% endblock %}

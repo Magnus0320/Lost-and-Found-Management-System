@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Item{% endblock %}
+
+{% block content %}
+<h2 class="mt-4">Edit Item</h2>
+<form method="POST" action="{{ url_for('edit_item', item_id=item.id) }}" enctype="multipart/form-data">
+
+    <div class="form-group">
+        <label for="name">Item Name</label>
+        <input type="text" class="form-control" id="name" name="name" value="{{ item.name }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="3" required>{{ item.description }}</textarea>
+    </div>
+
+    <!-- CATEGORY -->
+    <div class="form-group">
+        <label for="category">Category</label>
+        <select class="form-control" id="category" name="category" required>
+            {% for category in categories %}
+            <option value="{{ category.id }}" 
+                {% if category.id == item.category_id %}selected{% endif %}>
+                {{ category.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- STATUS (NEW!) -->
+    <div class="form-group">
+        <label for="status">Status</label>
+        <select class="form-control" id="status" name="status" required>
+            <option value="lost" {% if item.status == 'lost' %}selected{% endif %}>Lost</option>
+            <option value="found" {% if item.status == 'found' %}selected{% endif %}>Found</option>
+        </select>
+    </div>
+
+    <!-- DATE (FIXED NAME) -->
+    <div class="form-group">
+        <label for="date_lost_or_found">Date Lost/Found</label>
+        <input 
+            type="date" 
+            class="form-control" 
+            id="date_lost_or_found" 
+            name="date_lost_or_found" 
+            value="{{ item.date.strftime('%Y-%m-%d') }}" 
+            required
+        >
+    </div>
+
+    <!-- LOCATION -->
+    <div class="form-group">
+        <label for="location">Location</label>
+        <input 
+            type="text" 
+            class="form-control" 
+            id="location" 
+            name="location" 
+            value="{{ item.location or '' }}" 
+            required
+        >
+    </div>
+
+    <!-- IMAGE -->
+    <div class="form-group">
+        <label for="image_file">Upload Image</label>
+        <input type="file" class="form-control-file" id="image_file" name="image_file">
+
+        {% if item.image_file %}
+        <img src="{{ url_for('static', filename='images/' + item.image_file) }}" 
+             alt="{{ item.name }}" 
+             class="img-fluid mt-2" style="max-width: 300px;">
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
+</form>
+{% endblock %}

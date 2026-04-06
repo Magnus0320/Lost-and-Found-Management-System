@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<h2 class="mt-4">Edit Profile</h2>
+<form method="POST" action="{{ url_for('update_profile') }}" enctype="multipart/form-data">
+    
+    <div class="form-group">
+        <label for="first_name">First Name</label>
+        <input type="text" class="form-control" id="first_name" name="first_name"
+               value="{{ current_user.first_name }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="last_name">Last Name</label>
+        <input type="text" class="form-control" id="last_name" name="last_name"
+               value="{{ current_user.last_name }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="roll_number">Roll Number</label>
+        <input type="text" class="form-control" id="roll_number" name="roll_number"
+               value="{{ current_user.roll_number }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="batch">Batch</label>
+        <select class="form-control" id="batch" name="batch" required>
+            {% for year in range(2020, 2031) %}
+            <option value="{{ year }}" {% if current_user.batch == year %}selected{% endif %}>
+                {{ year }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="course">Course</label>
+        <select class="form-control" id="course" name="course" required>
+            <option value="BTECH" {% if current_user.course == 'BTECH' %}selected{% endif %}>BTECH</option>
+            <option value="BARCH" {% if current_user.course == 'BARCH' %}selected{% endif %}>BARCH</option>
+            <option value="MTECH" {% if current_user.course == 'MTECH' %}selected{% endif %}>MTECH</option>
+            <option value="MSC" {% if current_user.course == 'MSC' %}selected{% endif %}>MSC</option>
+            <option value="PHD" {% if current_user.course == 'PHD' %}selected{% endif %}>PHD</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="branch">Branch</label>
+        <select class="form-control" id="branch" name="branch" required>
+            <option value="CSE"  {% if current_user.branch == 'CSE' %}selected{% endif %}>CSE</option>
+            <option value="EEC"  {% if current_user.branch == 'EEC' %}selected{% endif %}>EEC</option>
+            <option value="ECE"  {% if current_user.branch == 'ECE' %}selected{% endif %}>ECE</option>
+            <option value="EEE"  {% if current_user.branch == 'EEE' %}selected{% endif %}>EEE</option>
+            <option value="ICE"  {% if current_user.branch == 'ICE' %}selected{% endif %}>ICE</option>
+            <option value="CHEM" {% if current_user.branch == 'CHEM' %}selected{% endif %}>CHEM</option>
+            <option value="CIVIL" {% if current_user.branch == 'CIVIL' %}selected{% endif %}>CIVIL</option>
+            <option value="MECH" {% if current_user.branch == 'MECH' %}selected{% endif %}>MECH</option>
+            <option value="PROD" {% if current_user.branch == 'PROD' %}selected{% endif %}>PROD</option>
+            <option value="OTHER" {% if current_user.branch == 'OTHER' %}selected{% endif %}>OTHER</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="profile_pic">Profile Picture</label>
+        <input type="file" class="form-control-file" id="profile_pic" name="profile_pic">
+        {% if current_user.profile_pic %}
+        <img src="{{ url_for('static', filename='images/' + current_user.profile_pic) }}"
+             alt="Profile Picture" class="img-fluid mt-2" width="150" height="150">
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+
+</form>
+{% endblock %}

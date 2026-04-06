@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Add Item{% endblock %}
+
+{% block content %}
+<h2 class="mt-4">Add Item</h2>
+
+<form method="POST" action="{{ url_for('add_item') }}" enctype="multipart/form-data">
+    <!-- ITEM NAME -->
+    <div class="form-group">
+        <label for="name">Item Name</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+    </div>
+
+    <!-- DESCRIPTION -->
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+    </div>
+
+    <!-- CATEGORY -->
+    <div class="form-group">
+        <label for="category">Category</label>
+        <select class="form-control" id="category" name="category" required>
+            {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- STATUS -->
+    <div class="form-group">
+        <label for="status">Status</label>
+        <select class="form-control" id="status" name="status" required>
+            <option value="lost">Lost</option>
+            <option value="found">Found</option>
+        </select>
+    </div>
+
+    <!-- DATE (matches name="date" in app.py) -->
+    <div class="form-group">
+        <label for="date">Date Lost/Found</label>
+        <input
+            type="date"
+            class="form-control"
+            id="date"
+            name="date"
+            required
+        >
+    </div>
+
+    <!-- LOCATION -->
+    <div class="form-group">
+        <label for="location">Location</label>
+        <input
+            type="text"
+            class="form-control"
+            id="location"
+            name="location"
+            placeholder="Library, Hostel, Block A, etc."
+            required
+        >
+    </div>
+
+    <!-- IMAGE (matches image = request.files.get('image')) -->
+    <div class="form-group">
+        <label for="image">Upload Image</label>
+        <input type="file" class="form-control-file" id="image" name="image">
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Add Item</button>
+</form>
+{% endblock %}

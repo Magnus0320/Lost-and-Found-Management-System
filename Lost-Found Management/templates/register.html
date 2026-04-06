@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<h2 class="mt-4">Sign Up</h2>
+<form method="POST" action="{{ url_for('register') }}" onsubmit="return validateForm()">
+    <div class="form-group">
+        <label for="email">Email address</label>
+        <input type="email" class="form-control" id="email" name="email" required>
+        <small id="emailHelp" class="form-text text-muted">Please use your college email ending in .edu</small>
+    </div>
+    <div class="form-group">
+        <label for="first_name">First Name</label>
+        <input type="text" class="form-control" id="first_name" name="first_name" required>
+    </div>
+    <div class="form-group">
+        <label for="last_name">Last Name</label>
+        <input type="text" class="form-control" id="last_name" name="last_name" required>
+    </div>
+    <div class="form-group">
+        <label for="roll_number">Roll Number</label>
+        <input type="text" class="form-control" id="roll_number" name="roll_number" required>
+    </div>
+    <div class="form-group">
+        <label for="batch">Batch</label>
+        <input type="number" class="form-control" id="batch" name="batch" min="2020" max="2030" required>
+    </div>
+    <div class="form-group">
+        <label for="course">Course</label>
+        <select class="form-control" id="course" name="course" required>
+            <option>Btech</option>
+            <option>Barch</option>
+            <option>Mtech</option>
+            <option>Msc</option>
+            <option>PHD</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="branch">Branch</label>
+        <select class="form-control" id="branch" name="branch" required>
+            <option>CSE</option>
+            <option>EEC</option>
+            <option>ECE</option>
+            <option>EEE</option>
+            <option>ICE</option>
+            <option>Chem</option>
+            <option>Civil</option>
+            <option>MECH</option>
+            <option>Prod</option>
+            <option>Other</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required>
+        <small id="passwordHelp" class="form-text text-muted">Password must be at least 8 characters long and contain both letters and numbers.</small>
+    </div>
+    <button type="submit" class="btn btn-primary">Register</button>
+</form>
+
+<script>
+    function validateForm() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        // Check if email ends with .edu
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.edu$/;
+        if (!emailPattern.test(email)) {
+            alert("Please enter a valid college email address ending in .edu");
+            return false;
+        }
+
+        // Check if password is at least 8 characters long and contains both letters and numbers
+        const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+        if (!passwordPattern.test(password)) {
+            alert("Password must be at least 8 characters long and contain both letters and numbers.");
+            return false;
+        }
+
+        return true;
+    }
+</script>
+{% endblock %}

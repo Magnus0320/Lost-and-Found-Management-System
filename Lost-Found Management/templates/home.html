@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<h2 class="mt-4">Lost & Found Items</h2>
+
+<form method="GET" action="{{ url_for('home_page') }}" class="form-inline mb-4">
+    <input
+        type="text"
+        class="form-control mr-2"
+        name="search"
+        placeholder="Search by name or description"
+        value="{{ request.args.get('search', '') }}"
+    >
+    <select class="form-control mr-2" name="category">
+        <option value="">All Categories</option>
+        {% for category in categories %}
+        <option value="{{ category.id }}"
+                {% if request.args.get('category') == category.id|string %}selected{% endif %}>
+            {{ category.name }}
+        </option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Filter</button>
+</form>
+
+<div class="row">
+    {% if items %}
+        {% for item in items %}
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <img src="{{ url_for('static', filename='images/' + item.image_file) }}"
+                     class="card-img-top"
+                     alt="{{ item.name }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.name }}</h5>
+                    <p class="card-text">
+                        {{ item.description[:100] }}{% if item.description|length > 100 %}...{% endif %}
+                    </p>
+                    <a href="{{ url_for('item_detail', item_id=item.id) }}" class="btn btn-primary">
+                        View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <p>No items found. Try changing your search or category filter.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

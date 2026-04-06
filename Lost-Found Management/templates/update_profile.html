@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit Profile</h2>
+    <form method="POST" enctype="multipart/form-data" onsubmit="return validateForm()">
+        <div class="form-group">
+            <label for="first_name">First Name</label>
+            <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}" required>
+        </div>
+        <div class="form-group">
+            <label for="last_name">Last Name</label>
+            <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user.last_name }}" required>
+        </div>
+        <div class="form-group">
+            <label for="roll_number">Roll Number</label>
+            <input type="text" class="form-control" id="roll_number" name="roll_number" value="{{ user.roll_number }}" required>
+        </div>
+        <div class="form-group">
+            <label for="batch">Batch</label>
+            <select id="batch" name="batch" class="form-control" required>
+                {% for year in range(2020, 2031) %}
+                <option value="{{ year }}" {% if user.batch == year %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="course">Course</label>
+            <select id="course" name="course" class="form-control" required>
+                <option value="Btech" {% if user.course == 'Btech' %}selected{% endif %}>Btech</option>
+                <option value="Barch" {% if user.course == 'Barch' %}selected{% endif %}>Barch</option>
+                <option value="Mtech" {% if user.course == 'Mtech' %}selected{% endif %}>Mtech</option>
+                <option value="Msc" {% if user.course == 'Msc' %}selected{% endif %}>Msc</option>
+                <option value="PHD" {% if user.course == 'PHD' %}selected{% endif %}>PHD</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="branch">Branch</label>
+            <select id="branch" name="branch" class="form-control" required>
+                <option value="CSE" {% if user.branch == 'CSE' %}selected{% endif %}>CSE</option>
+                <option value="ECE" {% if user.branch == 'ECE' %}selected{% endif %}>ECE</option>
+                <option value="EEE" {% if user.branch == 'EEE' %}selected{% endif %}>EEE</option>
+                <option value="ICE" {% if user.branch == 'ICE' %}selected{% endif %}>ICE</option>
+                <option value="Chem" {% if user.branch == 'Chem' %}selected{% endif %}>Chem</option>
+                <option value="Civil" {% if user.branch == 'Civil' %}selected{% endif %}>Civil</option>
+                <option value="MECH" {% if user.branch == 'MECH' %}selected{% endif %}>MECH</option>
+                <option value="Prod" {% if user.branch == 'Prod' %}selected{% endif %}>Prod</option>
+                <option value="Other" {% if user.branch == 'Other' %}selected{% endif %}>Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="profile_pic">Profile Picture</label>
+            <input type="file" class="form-control-file" id="profile_pic" name="profile_pic" accept="image/*">
+            {% if user.profile_pic %}
+            <div class="mt-2">
+                <img src="{{ url_for('static', filename='images/' + user.profile_pic) }}" alt="Current Profile Picture" class="img-thumbnail" width="150">
+            </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Update Profile</button>
+    </form>
+</div>
+
+<script>
+    function validateForm() {
+        const fileInput = document.getElementById("profile_pic");
+        const file = fileInput.files[0];
+
+        if (file && !file.type.startsWith('image/')) {
+            alert("Please upload a valid image file.");
+            return false;
+        }
+
+        return true;
+    }
+</script>
+{% endblock %}
