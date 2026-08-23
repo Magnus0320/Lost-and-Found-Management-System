@@ -1,0 +1,9 @@
+-r requirements.txt
+
+pytest==8.3.4
+httpx==0.28.1
+
+# Browser end-to-end test (scripts/e2e_test.py). Dev only -- not installed in
+# the application image. After installing, fetch the browser binary once:
+#     python -m playwright install chromium
+playwright==1.62.0

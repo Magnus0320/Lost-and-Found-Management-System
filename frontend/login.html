@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main class="narrow">
+    <h1>Log in</h1>
+    <p class="sub">Use your campus email and password.</p>
+    <div class="panel">
+      <div class="notice" data-notice hidden></div>
+      <div class="banner" data-error-banner hidden></div>
+      <form data-login-form novalidate>
+        <label>Email
+          <input name="email" type="email" autocomplete="username" required data-testid="login-email">
+          <span class="field-error" data-field-error="email"></span>
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" required data-testid="login-password">
+          <span class="field-error" data-field-error="password"></span>
+        </label>
+        <button type="submit" data-testid="login-submit">Log in</button>
+      </form>
+      <p class="muted" style="margin-top:16px">
+        No account? <a href="/app/register.html">Register</a> ·
+        <a href="/app/reset-request.html">Forgot password?</a>
+      </p>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/login.js"></script>
+</body>
+</html>

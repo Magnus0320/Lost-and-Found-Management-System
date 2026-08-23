@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reset password — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main class="narrow">
+    <h1>Forgot your password?</h1>
+    <p class="sub">We'll send a one-time code to your email.</p>
+    <div class="panel">
+      <div class="dev-otp" data-dev-otp hidden></div>
+      <div class="notice" data-notice hidden></div>
+      <div class="banner" data-error-banner hidden></div>
+      <form data-reset-request-form novalidate>
+        <label>Email
+          <input name="email" type="email" required data-testid="reset-email">
+          <span class="field-error" data-field-error="email"></span>
+        </label>
+        <button type="submit" data-testid="reset-request-submit">Send reset code</button>
+      </form>
+      <p class="muted" style="margin-top:16px">
+        Already have a code? <a href="/app/reset-confirm.html">Enter it here</a>
+      </p>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/reset-request.js"></script>
+</body>
+</html>

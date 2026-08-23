@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set a new password — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main class="narrow">
+    <h1>Set a new password</h1>
+    <p class="sub">Enter the code you received and choose a new password.</p>
+    <div class="panel">
+      <div class="notice" data-notice hidden></div>
+      <div class="banner" data-error-banner hidden></div>
+      <form data-reset-confirm-form novalidate>
+        <label>Email
+          <input name="email" type="email" required data-testid="confirm-email">
+          <span class="field-error" data-field-error="email"></span>
+        </label>
+        <label>One-time code
+          <input name="otp" inputmode="numeric" maxlength="8" required data-testid="confirm-otp">
+          <span class="field-error" data-field-error="otp"></span>
+        </label>
+        <label>New password
+          <input name="new_password" type="password" autocomplete="new-password" required data-testid="confirm-password">
+          <span class="field-error" data-field-error="new_password"></span>
+        </label>
+        <button type="submit" data-testid="confirm-submit">Update password</button>
+      </form>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/reset-confirm.js"></script>
+</body>
+</html>

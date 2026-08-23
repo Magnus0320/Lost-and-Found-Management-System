@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lostfound}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lostfound}
+      POSTGRES_DB: ${POSTGRES_DB:-lostfound}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lostfound} -d ${POSTGRES_DB:-lostfound}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Service name 'db' resolves on the compose network -- no local Postgres install.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lostfound}:${POSTGRES_PASSWORD:-lostfound}@db:5432/${POSTGRES_DB:-lostfound}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      # Schema is applied by scripts/entrypoint.sh (alembic upgrade head)
+      # before uvicorn starts, so the app process itself must not migrate.
+      RUN_MIGRATIONS_ON_STARTUP: "false"
+      # Outbound mail. Values come from the root .env (never baked into the
+      # image -- .env is excluded by .dockerignore). With MAIL_ENABLED=false the
+      # API returns the OTP as otp_debug instead of sending anything.
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@campus-lost-found.local}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+      MAIL_TIMEOUT_SECONDS: ${MAIL_TIMEOUT_SECONDS:-15}
+      OTP_TTL_MINUTES: ${OTP_TTL_MINUTES:-10}
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+volumes:
+  pgdata:

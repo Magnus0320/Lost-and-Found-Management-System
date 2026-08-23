@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claims — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main>
+    <h1>Claims</h1>
+    <p class="sub">Claims people filed on items you reported, and claims you filed yourself.</p>
+
+    <div class="banner" data-error-banner hidden></div>
+    <div class="notice" data-notice hidden></div>
+
+    <div class="panel">
+      <div class="spread">
+        <h2 style="margin:0;font-size:17px">On items I reported</h2>
+        <button type="button" class="secondary small" data-refresh>Refresh</button>
+      </div>
+      <p class="muted" style="font-size:14px">Approving a claim moves the item to <strong>claimed</strong>.</p>
+      <div data-incoming data-testid="incoming-claims"></div>
+    </div>
+
+    <div class="panel">
+      <h2 style="margin-top:0;font-size:17px">Claims I filed</h2>
+      <div data-outgoing data-testid="outgoing-claims"></div>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/claims.js"></script>
+</body>
+</html>

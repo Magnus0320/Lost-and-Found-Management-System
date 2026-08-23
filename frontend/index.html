@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Browse — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main>
+    <div class="spread">
+      <div>
+        <h1>Lost &amp; found items</h1>
+        <p class="sub">Search reported items across campus.</p>
+      </div>
+      <a href="/app/report.html"><button type="button">Report an item</button></a>
+    </div>
+
+    <form class="panel" data-search-form style="margin-bottom:18px">
+      <div class="row">
+        <label>Search
+          <input name="q" placeholder="e.g. black wallet, iPhone" data-testid="search-q">
+        </label>
+        <label>Status
+          <select name="status" data-testid="search-status">
+            <option value="">Any</option>
+            <option value="reported">Reported</option>
+            <option value="matched">Matched</option>
+            <option value="claimed">Claimed</option>
+            <option value="closed">Closed</option>
+          </select>
+        </label>
+        <label>Kind
+          <select name="kind" data-testid="search-kind">
+            <option value="">Any</option>
+            <option value="lost">Lost</option>
+            <option value="found">Found</option>
+          </select>
+        </label>
+        <label>Category
+          <select name="category_id" data-testid="search-category"><option value="">Any</option></select>
+        </label>
+      </div>
+      <button type="submit" data-testid="search-submit">Search</button>
+      <button type="button" class="secondary" data-reset>Reset</button>
+    </form>
+
+    <div class="banner" data-error-banner hidden></div>
+    <p class="muted" data-result-count></p>
+    <div class="grid" data-results></div>
+    <div data-empty hidden class="empty">No items match that search.</div>
+  </main>
+
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/browse.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Item — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main>
+    <p><a href="/app/index.html">&larr; Back to browse</a></p>
+    <div class="banner" data-error-banner hidden></div>
+    <div class="notice" data-notice hidden></div>
+
+    <div class="panel" data-item hidden>
+      <div class="spread">
+        <div>
+          <h1 data-testid="item-name"></h1>
+          <p class="sub" data-item-kindline></p>
+        </div>
+        <div><span data-testid="item-status"></span></div>
+      </div>
+      <p data-testid="item-description"></p>
+      <dl class="kv">
+        <dt>Location</dt><dd data-testid="item-location"></dd>
+        <dt>Category</dt><dd data-testid="item-category"></dd>
+        <dt>Date</dt><dd data-testid="item-date"></dd>
+        <dt>Reported by</dt><dd data-testid="item-reporter"></dd>
+      </dl>
+    </div>
+
+    <!-- Owner-only lifecycle controls -->
+    <div class="panel" data-owner-panel hidden>
+      <h2 style="margin-top:0;font-size:17px">Lifecycle</h2>
+      <p class="muted" style="font-size:14px">
+        Move this item along <code>reported &rarr; matched &rarr; claimed &rarr; closed</code>.
+        Only transitions the API allows are offered.
+      </p>
+      <div data-transition-buttons class="row" style="gap:8px"></div>
+    </div>
+
+    <!-- Claim form for non-owners -->
+    <div class="panel" data-claim-panel hidden>
+      <h2 style="margin-top:0;font-size:17px">Is this yours?</h2>
+      <form data-claim-form novalidate>
+        <label>How can you prove it?
+          <textarea name="evidence" required placeholder="Serial number, distinguishing marks, receipt…"
+                    data-testid="claim-evidence"></textarea>
+          <span class="field-error" data-field-error="evidence"></span>
+        </label>
+        <button type="submit" data-testid="claim-submit">File a claim</button>
+      </form>
+    </div>
+
+    <!-- Claims on this item, visible to the reporter -->
+    <div class="panel" data-item-claims-panel hidden>
+      <h2 style="margin-top:0;font-size:17px">Claims on this item</h2>
+      <div data-item-claims></div>
+    </div>
+
+    <div class="panel">
+      <h2 style="margin-top:0;font-size:17px">History</h2>
+      <ul class="timeline" data-history data-testid="item-history"></ul>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/item.js"></script>
+</body>
+</html>

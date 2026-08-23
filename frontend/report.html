@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report an item — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main class="narrow">
+    <h1>Report an item</h1>
+    <p class="sub">Tell us what you lost or found. It starts at <strong>reported</strong>.</p>
+    <div class="panel">
+      <div class="banner" data-error-banner hidden></div>
+      <form data-report-form novalidate>
+        <label>What is it?
+          <input name="name" required maxlength="120" placeholder="Black leather wallet"
+                 data-testid="report-name">
+          <span class="field-error" data-field-error="name"></span>
+        </label>
+        <label>Description
+          <textarea name="description" required placeholder="Distinguishing details…"
+                    data-testid="report-description"></textarea>
+          <span class="field-error" data-field-error="description"></span>
+        </label>
+        <div class="row">
+          <label>Lost or found?
+            <select name="kind" data-testid="report-kind">
+              <option value="found">I found this</option>
+              <option value="lost">I lost this</option>
+            </select>
+            <span class="field-error" data-field-error="kind"></span>
+          </label>
+          <label>When?
+            <input name="occurred_on" type="date" required data-testid="report-date">
+            <span class="field-error" data-field-error="occurred_on"></span>
+          </label>
+        </div>
+        <div class="row">
+          <label>Category
+            <select name="category_id" data-testid="report-category"><option value="">—</option></select>
+          </label>
+          <label>Location
+            <select name="location_id" data-testid="report-location"><option value="">—</option></select>
+          </label>
+        </div>
+        <details style="margin-bottom:14px">
+          <summary class="muted" style="cursor:pointer">Add a new location</summary>
+          <div class="row" style="margin-top:10px">
+            <label>Name <input name="new_location_name" data-testid="new-location-name"></label>
+            <label>Building <input name="new_location_building" data-testid="new-location-building"></label>
+          </div>
+          <button type="button" class="secondary small" data-add-location>Add location</button>
+        </details>
+        <button type="submit" data-testid="report-submit">Report item</button>
+      </form>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/report.js"></script>
+</body>
+</html>
