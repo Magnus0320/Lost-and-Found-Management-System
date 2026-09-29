@@ -5,27 +5,37 @@
 const TOKEN_KEY = "lf_token";
 const USER_KEY = "lf_user";
 
+// Storage can throw (blocked site data, some private modes). Browsing must
+// still work then; only staying signed in across pages does not.
+function store(fn, fallback = null) {
+  try {
+    return fn(window.localStorage);
+  } catch {
+    return fallback;
+  }
+}
+
 export const auth = {
   get token() {
-    return localStorage.getItem(TOKEN_KEY);
+    return store((s) => s.getItem(TOKEN_KEY));
   },
   get user() {
-    try {
-      return JSON.parse(localStorage.getItem(USER_KEY) || "null");
-    } catch {
-      return null;
-    }
+    return store((s) => JSON.parse(s.getItem(USER_KEY) || "null"));
   },
   get isLoggedIn() {
     return Boolean(this.token);
   },
   save(token, user) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    store((s) => {
+      s.setItem(TOKEN_KEY, token);
+      s.setItem(USER_KEY, JSON.stringify(user));
+    });
   },
   clear() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    store((s) => {
+      s.removeItem(TOKEN_KEY);
+      s.removeItem(USER_KEY);
+    });
   },
 };
 

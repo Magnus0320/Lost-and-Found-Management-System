@@ -3,24 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Set a new password — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main class="narrow">
+  <main id="main" class="narrow">
+    <p class="eyebrow">Front desk</p>
     <h1>Set a new password</h1>
     <p class="sub">Enter the code you received and choose a new password.</p>
-    <div class="panel">
+    <div class="panel ticket">
+      <p class="stub">Password reset slip</p>
       <div class="notice" data-notice hidden></div>
       <div class="banner" data-error-banner hidden></div>
       <form data-reset-confirm-form novalidate>
         <label>Email
-          <input name="email" type="email" required data-testid="confirm-email">
+          <input name="email" type="email" autocomplete="username" required data-testid="confirm-email">
           <span class="field-error" data-field-error="email"></span>
         </label>
         <label>One-time code
-          <input name="otp" inputmode="numeric" maxlength="8" required data-testid="confirm-otp">
+          <input name="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required data-testid="confirm-otp">
           <span class="field-error" data-field-error="otp"></span>
         </label>
         <label>New password
@@ -31,6 +42,7 @@
       </form>
     </div>
   </main>
+
   <script type="module" src="/app/js/nav.js"></script>
   <script type="module" src="/app/js/pages/reset-confirm.js"></script>
 </body>

@@ -3,27 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Report an item — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main class="narrow">
+  <main id="main" class="narrow">
+    <p class="eyebrow">Form LF-1</p>
     <h1>Report an item</h1>
-    <p class="sub">Tell us what you lost or found. It starts at <strong>reported</strong>.</p>
-    <div class="panel">
+    <p class="sub">Tell the office what you lost or found. It is logged as <strong>reported</strong>.</p>
+    <div class="panel ticket">
+      <p class="stub">Property report · one item per form</p>
       <div class="banner" data-error-banner hidden></div>
       <form data-report-form novalidate>
-        <label>What is it?
-          <input name="name" required maxlength="120" placeholder="Black leather wallet"
-                 data-testid="report-name">
-          <span class="field-error" data-field-error="name"></span>
-        </label>
-        <label>Description
-          <textarea name="description" required placeholder="Distinguishing details…"
-                    data-testid="report-description"></textarea>
-          <span class="field-error" data-field-error="description"></span>
-        </label>
         <div class="row">
           <label>Lost or found?
             <select name="kind" data-testid="report-kind">
@@ -37,6 +38,16 @@
             <span class="field-error" data-field-error="occurred_on"></span>
           </label>
         </div>
+        <label>What is it?
+          <input name="name" required maxlength="120" placeholder="Black leather wallet"
+                 data-testid="report-name">
+          <span class="field-error" data-field-error="name"></span>
+        </label>
+        <label>Description
+          <textarea name="description" required placeholder="Colour, brand, marks, what was inside…"
+                    data-testid="report-description"></textarea>
+          <span class="field-error" data-field-error="description"></span>
+        </label>
         <div class="row">
           <label>Category
             <select name="category_id" data-testid="report-category"><option value="">—</option></select>
@@ -45,18 +56,19 @@
             <select name="location_id" data-testid="report-location"><option value="">—</option></select>
           </label>
         </div>
-        <details style="margin-bottom:14px">
-          <summary class="muted" style="cursor:pointer">Add a new location</summary>
-          <div class="row" style="margin-top:10px">
+        <details style="margin-bottom:18px">
+          <summary>Location not listed? Add it</summary>
+          <div class="row">
             <label>Name <input name="new_location_name" data-testid="new-location-name"></label>
             <label>Building <input name="new_location_building" data-testid="new-location-building"></label>
           </div>
           <button type="button" class="secondary small" data-add-location>Add location</button>
         </details>
-        <button type="submit" data-testid="report-submit">Report item</button>
+        <button type="submit" data-testid="report-submit">Log this item</button>
       </form>
     </div>
   </main>
+
   <script type="module" src="/app/js/nav.js"></script>
   <script type="module" src="/app/js/pages/report.js"></script>
 </body>

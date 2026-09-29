@@ -1,4 +1,5 @@
 import { api, showError, clearError, formData, qs } from "../api.js";
+import { showDevCode } from "../ui.js";
 
 const form = document.querySelector("[data-verify-form]");
 const devBox = document.querySelector("[data-dev-otp]");
@@ -11,9 +12,7 @@ if (email) form.querySelector('[name="email"]').value = email;
 const devOtp = qs("otp");
 if (devOtp) {
   form.querySelector('[name="otp"]').value = devOtp;
-  devBox.innerHTML =
-    `Development mode: no email was sent. Your code is <code data-testid="dev-otp-value">${devOtp}</code>`;
-  devBox.hidden = false;
+  showDevCode(devBox, devOtp);
 }
 
 form.addEventListener("submit", async (e) => {

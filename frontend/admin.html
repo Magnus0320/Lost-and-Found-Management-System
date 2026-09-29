@@ -3,61 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Admin — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main>
+  <main id="main">
+    <p class="eyebrow">Back office</p>
     <h1>Admin</h1>
     <p class="sub">Manage every item, claim and account in the system.</p>
 
     <div class="banner" data-error-banner hidden></div>
     <div class="notice" data-notice hidden></div>
 
-    <div class="panel" data-denied hidden>
-      <h2 style="margin-top:0;font-size:17px">Not an administrator</h2>
+    <section class="panel" data-denied hidden>
+      <h2>Not an administrator</h2>
       <p class="muted">
         This account does not have staff access. An existing admin can grant it,
         or it can be granted from the command line with
         <code>python scripts/make_admin.py your@email</code>.
       </p>
-    </div>
+    </section>
 
     <div data-admin hidden>
-      <div class="panel">
+      <section class="panel" aria-label="Totals">
         <div class="statgrid" data-stats></div>
-      </div>
+      </section>
 
       <!-- Items -->
-      <div class="panel">
-        <div class="spread">
-          <h2 style="margin:0;font-size:17px">Items</h2>
+      <section class="panel" aria-labelledby="admin-items-title">
+        <div class="panel-head">
+          <h2 id="admin-items-title">Items</h2>
           <button type="button" class="secondary small" data-refresh>Refresh</button>
         </div>
-        <form class="row" data-item-filter style="margin-top:12px">
-          <label style="flex:2 1 200px">Search
-            <input name="q" placeholder="name or description" data-testid="admin-item-q">
+        <form class="row filters" data-item-filter>
+          <label style="flex:2 1 220px">Search
+            <input name="q" type="search" placeholder="name or description" data-testid="admin-item-q">
           </label>
-          <label style="flex:1 1 140px">Status
+          <label style="flex:1 1 150px">Status
             <select name="status">
               <option value="">Any</option>
-              <option value="reported">reported</option>
-              <option value="matched">claim pending</option>
-              <option value="claimed">claimed</option>
-              <option value="closed">closed</option>
+              <option value="reported">Reported</option>
+              <option value="matched">Claim pending</option>
+              <option value="claimed">Claimed</option>
+              <option value="closed">Closed</option>
             </select>
           </label>
-          <label style="flex:1 1 140px">Reported by
+          <label style="flex:1 1 130px">Reported by
             <input name="reporter_id" placeholder="user id" inputmode="numeric">
           </label>
-          <div style="flex:0 0 auto;display:flex;gap:8px;align-items:flex-end">
+          <div class="actions">
             <button type="submit" class="small">Filter</button>
             <button type="button" class="secondary small" data-item-reset>Reset</button>
           </div>
         </form>
 
-        <div class="spread" style="margin-top:14px">
+        <div class="spread toolbar">
           <label class="inline">
             <input type="checkbox" data-select-all data-testid="admin-select-all">
             Select all shown
@@ -66,47 +76,48 @@
                   data-testid="admin-bulk-delete" disabled>Delete selected</button>
         </div>
         <div data-items data-testid="admin-items"></div>
-        <div class="spread" style="margin-top:10px">
-          <span class="muted" data-items-count></span>
-          <span>
+        <div class="spread pager">
+          <span class="idno" data-items-count></span>
+          <span class="actions" style="margin:0">
             <button type="button" class="secondary small" data-page-prev>Previous</button>
             <button type="button" class="secondary small" data-page-next>Next</button>
           </span>
         </div>
-      </div>
+      </section>
 
       <!-- Accounts -->
-      <div class="panel">
-        <h2 style="margin-top:0;font-size:17px">Accounts</h2>
-        <form class="row" data-user-filter>
-          <label style="flex:2 1 220px">Search
-            <input name="q" placeholder="email, name or roll number" data-testid="admin-user-q">
+      <section class="panel" aria-labelledby="admin-users-title">
+        <h2 id="admin-users-title">Accounts</h2>
+        <form class="row filters" data-user-filter>
+          <label style="flex:2 1 240px">Search
+            <input name="q" type="search" placeholder="email, name or roll number" data-testid="admin-user-q">
           </label>
-          <div style="flex:0 0 auto;display:flex;gap:8px;align-items:flex-end">
+          <div class="actions">
             <button type="submit" class="small">Filter</button>
             <button type="button" class="secondary small" data-user-reset>Reset</button>
           </div>
         </form>
-        <div data-users data-testid="admin-users" style="margin-top:12px"></div>
-        <div class="muted" data-users-count style="margin-top:10px"></div>
-      </div>
+        <div data-users data-testid="admin-users"></div>
+        <div class="idno" data-users-count style="margin-top:10px"></div>
+      </section>
 
       <!-- Reference data -->
-      <div class="panel">
-        <h2 style="margin-top:0;font-size:17px">Locations &amp; categories</h2>
+      <section class="panel refdata" aria-labelledby="admin-ref-title">
+        <h2 id="admin-ref-title">Locations &amp; categories</h2>
         <div class="row">
-          <div style="flex:1 1 260px">
-            <h3 style="font-size:14px;margin:8px 0">Locations</h3>
+          <div style="flex:1 1 280px">
+            <h3>Locations</h3>
             <div data-locations data-testid="admin-locations"></div>
           </div>
-          <div style="flex:1 1 260px">
-            <h3 style="font-size:14px;margin:8px 0">Categories</h3>
+          <div style="flex:1 1 280px">
+            <h3>Categories</h3>
             <div data-categories data-testid="admin-categories"></div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </main>
+
   <script type="module" src="/app/js/nav.js"></script>
   <script type="module" src="/app/js/pages/admin.js"></script>
 </body>

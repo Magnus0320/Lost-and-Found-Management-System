@@ -3,32 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Claims — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main>
+  <main id="main">
+    <p class="eyebrow">Claims desk</p>
     <h1>Claims</h1>
     <p class="sub">Claims people filed on items you reported, and claims you filed yourself.</p>
 
     <div class="banner" data-error-banner hidden></div>
     <div class="notice" data-notice hidden></div>
 
-    <div class="panel">
-      <div class="spread">
-        <h2 style="margin:0;font-size:17px">On items I reported</h2>
+    <section class="panel" aria-labelledby="incoming-title">
+      <div class="panel-head">
+        <h2 id="incoming-title">On items I reported</h2>
         <button type="button" class="secondary small" data-refresh>Refresh</button>
       </div>
-      <p class="muted" style="font-size:14px">Approving a claim moves the item to <strong>claimed</strong>.</p>
+      <p class="muted small-text">Approving a claim moves the item to <strong>claimed</strong> and shares contact details with that claimant only.</p>
       <div data-incoming data-testid="incoming-claims"></div>
-    </div>
+    </section>
 
-    <div class="panel">
-      <h2 style="margin-top:0;font-size:17px">Claims I filed</h2>
+    <section class="panel" aria-labelledby="outgoing-title">
+      <h2 id="outgoing-title">Claims I filed</h2>
       <div data-outgoing data-testid="outgoing-claims"></div>
-    </div>
+    </section>
   </main>
+
   <script type="module" src="/app/js/nav.js"></script>
   <script type="module" src="/app/js/pages/claims.js"></script>
 </body>

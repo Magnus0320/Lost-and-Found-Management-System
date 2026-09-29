@@ -3,46 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Item — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main>
-    <p><a href="/app/index.html">&larr; Back to browse</a></p>
+  <main id="main">
+    <a class="back" href="/app/index.html" data-back></a>
     <div class="banner" data-error-banner hidden></div>
     <div class="notice" data-notice hidden></div>
 
-    <div class="panel" data-item hidden>
-      <div class="spread">
-        <div>
-          <h1 data-testid="item-name"></h1>
-          <p class="sub" data-item-kindline></p>
-        </div>
-        <div><span data-testid="item-status"></span></div>
-      </div>
-      <p data-testid="item-description"></p>
-      <dl class="kv">
-        <dt>Location</dt><dd data-testid="item-location"></dd>
-        <dt>Category</dt><dd data-testid="item-category"></dd>
-        <dt>Date</dt><dd data-testid="item-date"></dd>
-        <dt>Reported by</dt><dd data-testid="item-reporter"></dd>
-      </dl>
+    <div class="panel item-tag" data-item-skeleton aria-hidden="true">
+      <span class="hole"></span>
+      <div class="tag-stub"><span class="skel" style="height:11px;width:30%"></span></div>
+      <span class="skel skel-title" style="height:30px;width:60%"></span>
+      <span class="skel skel-line" style="width:20%"></span>
+      <span class="skel skel-line" style="margin-top:22px"></span>
+      <span class="skel skel-line" style="width:75%"></span>
     </div>
+
+    <article class="panel item-tag" data-item hidden aria-labelledby="item-name">
+      <span class="hole" aria-hidden="true"></span>
+      <div class="tag-stub"><span data-item-no></span><span data-item-logged></span></div>
+      <div class="item-head">
+        <div>
+          <h1 id="item-name" data-testid="item-name"></h1>
+          <div data-item-kindline></div>
+        </div>
+        <div class="stamp-wrap"><span data-testid="item-status"></span></div>
+      </div>
+      <p class="item-desc" data-testid="item-description"></p>
+      <dl class="kv">
+        <div><dt>Location</dt><dd data-testid="item-location"></dd></div>
+        <div><dt>Category</dt><dd data-testid="item-category"></dd></div>
+        <div><dt data-date-label>Date</dt><dd data-testid="item-date"></dd></div>
+        <div><dt>Reported by</dt><dd data-testid="item-reporter"></dd></div>
+      </dl>
+    </article>
+
+    <section class="panel" aria-labelledby="progress-title">
+      <h2 id="progress-title">Progress</h2>
+      <ol class="stepper" data-stepper data-testid="item-stepper" aria-label="Where this item is"></ol>
+      <h3 class="sr-only">History</h3>
+      <ul class="timeline" data-history data-testid="item-history"></ul>
+    </section>
 
     <!-- Owner-only lifecycle controls -->
-    <div class="panel" data-owner-panel hidden>
-      <h2 style="margin-top:0;font-size:17px">Lifecycle</h2>
-      <p class="muted" style="font-size:14px">
-        Move this item along <code>reported &rarr; claim pending &rarr; claimed &rarr; closed</code>.
-        Only transitions the API allows are offered.
-      </p>
-      <div data-transition-buttons class="row" style="gap:8px"></div>
-    </div>
+    <section class="panel" data-owner-panel hidden aria-labelledby="owner-title">
+      <h2 id="owner-title">Move this item</h2>
+      <p class="muted small-text">Only the moves the office allows from here are offered.</p>
+      <div data-transition-buttons class="actions"></div>
+    </section>
 
     <!-- Claim form for non-owners -->
-    <div class="panel" data-claim-panel hidden>
-      <h2 style="margin-top:0;font-size:17px">Is this yours?</h2>
+    <section class="panel" data-claim-panel hidden aria-labelledby="claim-title">
+      <h2 id="claim-title">Is this yours?</h2>
       <form data-claim-form novalidate>
         <label>How can you prove it?
           <textarea name="evidence" required placeholder="Serial number, distinguishing marks, receipt…"
@@ -51,32 +75,28 @@
         </label>
         <button type="submit" data-testid="claim-submit">File a claim</button>
       </form>
-    </div>
+    </section>
 
     <!-- The viewer's own claim, once they have filed one -->
-    <div class="panel" data-my-claim-panel hidden>
-      <h2 style="margin-top:0;font-size:17px">Your claim</h2>
+    <section class="panel" data-my-claim-panel hidden aria-labelledby="my-claim-title">
+      <h2 id="my-claim-title">Your claim</h2>
       <div data-my-claim data-testid="my-claim"></div>
-    </div>
+    </section>
 
     <!-- Claims on this item, visible to the reporter -->
-    <div class="panel" data-item-claims-panel hidden>
-      <h2 style="margin-top:0;font-size:17px">Claims on this item</h2>
+    <section class="panel" data-item-claims-panel hidden aria-labelledby="claims-title">
+      <h2 id="claims-title">Claims on this item</h2>
       <div data-item-claims></div>
-    </div>
+    </section>
 
     <!-- Similar posts of the opposite kind: lost <-> found -->
-    <div class="panel" data-suggestions-panel hidden>
-      <h2 style="margin-top:0;font-size:17px">Possible matches</h2>
-      <p class="muted" style="font-size:14px;margin-top:0" data-suggestions-intro></p>
+    <section class="panel" data-suggestions-panel hidden aria-labelledby="matches-title">
+      <h2 id="matches-title">Possible matches</h2>
+      <p class="muted suggestions-note" data-suggestions-intro></p>
       <div data-suggestions data-testid="item-suggestions"></div>
-    </div>
-
-    <div class="panel">
-      <h2 style="margin-top:0;font-size:17px">History</h2>
-      <ul class="timeline" data-history data-testid="item-history"></ul>
-    </div>
+    </section>
   </main>
+
   <script type="module" src="/app/js/nav.js"></script>
   <script type="module" src="/app/js/pages/item.js"></script>
 </body>

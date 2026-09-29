@@ -299,6 +299,21 @@ A small browser client is served by FastAPI's `StaticFiles` at **`/app/`**:
 | `/app/reset-request.html`, `reset-confirm.html` | Password reset |
 | `/app/admin.html` | Staff console: items, accounts, locations, categories |
 
+### Look and feel
+
+The design is a campus lost-property office:
+- **Items** are paper luggage tags: a punched hole, a mono "No. 00042" stub and date, and a coloured edge (red for lost, teal for found).
+- **Statuses** are rubber stamps.
+- **Colour:** one safety-orange accent marks the main action on each screen.
+- **Type:** Zilla Slab for headings, IBM Plex Sans for body text and IBM Plex Mono for IDs and dates. They come from Google Fonts, with system fallbacks.
+
+**Light and dark themes.** Every colour is a custom property in `frontend/css/styles.css`. The light theme is warm paper and the dark theme is deep ink.
+- **Default:** the page follows the OS setting.
+- **Toggle:** the nav button cycles System → Light → Dark and saves the choice in `localStorage`.
+- **No flash:** a two-line inline script in each page's `<head>` applies the saved theme before first paint.
+- **Contrast:** text, stamps, chips, form fields, focus rings and disabled buttons meet WCAG AA in both themes.
+- **Motion:** it respects `prefers-reduced-motion`.
+
 Deliberately plain: no framework, no build step, no npm. `frontend/js/api.js`
 is the only place that talks to the API — it attaches the bearer token, turns
 the API's typed error envelope into per-field form errors, and redirects to

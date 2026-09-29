@@ -1,5 +1,5 @@
 import { api, auth, showError, clearError, showNotice, requireLogin } from "../api.js";
-import { pill, esc, when, statusWithContact } from "../ui.js";
+import { pill, esc, when, statusWithContact, emptyState, skeletonRows, busy } from "../ui.js";
 
 if (requireLogin()) {
   const incoming = document.querySelector("[data-incoming]");
@@ -19,13 +19,13 @@ if (requireLogin()) {
           </span>
           <span data-testid="claim-status-${c.id}">${statusWithContact(c.status, other)}</span>
         </div>
-        <div class="muted" style="font-size:13px;margin-top:4px">
+        <div class="muted small-text" style="margin-top:4px">
           ${withActions
             ? `Claimed by ${esc(c.claimant.first_name)} ${esc(c.claimant.last_name)}`
             : `Reported by ${c.reporter ? esc(c.reporter.first_name + " " + c.reporter.last_name) : "—"}
                · Item status: ${item ? pill(item.status) : "—"}`}
         </div>
-        <p style="margin:8px 0 0">${esc(c.evidence)}</p>
+        <p class="evidence">${esc(c.evidence)}</p>
         <div class="when">${when(c.created_at)}</div>
         ${
           withActions && c.status === "pending"
@@ -42,7 +42,14 @@ if (requireLogin()) {
 
   /** Fetch claims and the items they belong to, so each row can show context. */
   async function loadInto(target, { mineOnly, ownedByMe }) {
-    const { results } = await api.listClaims({ mine_only: mineOnly, limit: 100 });
+    if (!target.children.length) target.innerHTML = skeletonRows(2);
+    busy(target, true);
+    let results;
+    try {
+      ({ results } = await api.listClaims({ mine_only: mineOnly, limit: 100 }));
+    } finally {
+      busy(target, false);
+    }
     const items = new Map();
     await Promise.all(
       [...new Set(results.map((c) => c.item_id))].map(async (id) => {
@@ -63,7 +70,14 @@ if (requireLogin()) {
 
     target.innerHTML = rows.length
       ? rows.map((c) => claimCard(c, items.get(c.item_id), ownedByMe)).join("")
-      : `<p class="muted">Nothing here yet.</p>`;
+      : emptyState(
+          ownedByMe
+            ? { art: "box", title: "No claims on your items",
+                body: "When someone says an item you reported is theirs, it lands here for you to decide." }
+            : { art: "tag", title: "You haven't claimed anything",
+                body: "Spotted your lost item in the log? Open it and file a claim with your proof.",
+                action: '<a class="button secondary" href="/app/index.html">Browse the log</a>' }
+        );
     return rows.length;
   }
 

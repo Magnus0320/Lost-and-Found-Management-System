@@ -3,24 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Browse — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main>
-    <div class="spread">
+  <main id="main">
+    <section class="intro" aria-labelledby="intro-title">
       <div>
-        <h1>Lost &amp; found items</h1>
-        <p class="sub">Search reported items across campus.</p>
+        <p class="eyebrow">Campus lost-property office</p>
+        <h1 id="intro-title">Lost something? Found something?</h1>
+        <p class="lede">Log it here. Lost reports and found items are matched up, and owners claim theirs back with proof.</p>
+        <ul class="counts" data-counts aria-live="polite" aria-busy="true">
+          <li><b data-count="total"><span class="skel" aria-hidden="true"></span></b>items logged</li>
+          <li><b data-count="open"><span class="skel" aria-hidden="true"></span></b>still looking</li>
+          <li title="Claimed or closed"><b data-count="reunited"><span class="skel" aria-hidden="true"></span></b>reunited</li>
+        </ul>
+        <a class="button" href="/app/report.html">Report an item</a>
       </div>
-      <a href="/app/report.html"><button type="button">Report an item</button></a>
-    </div>
+      <div>
+        <p class="eyebrow">How an item moves</p>
+        <ol class="flow">
+          <li><span class="n" aria-hidden="true"></span><span class="pill stamp" data-value="reported">Reported</span><span class="what">Someone logs it</span></li>
+          <li><span class="n" aria-hidden="true"></span><span class="pill stamp" data-value="matched">Claim pending</span><span class="what">An owner comes forward</span></li>
+          <li><span class="n" aria-hidden="true"></span><span class="pill stamp" data-value="claimed">Claimed</span><span class="what">The reporter approves</span></li>
+          <li><span class="n" aria-hidden="true"></span><span class="pill stamp" data-value="closed">Closed</span><span class="what">Handed back</span></li>
+        </ol>
+      </div>
+    </section>
 
-    <form class="panel" data-search-form style="margin-bottom:18px">
+    <form class="panel search" role="search" aria-label="Search items" data-search-form>
       <div class="row">
-        <label>Search
-          <input name="q" placeholder="e.g. black wallet, iPhone" data-testid="search-q">
+        <label style="flex:2 1 240px">Search
+          <input name="q" type="search" placeholder="e.g. black wallet, calculator" data-testid="search-q">
         </label>
         <label>Status
           <select name="status" data-testid="search-status">
@@ -31,9 +55,9 @@
             <option value="closed">Closed</option>
           </select>
         </label>
-        <label>Kind
+        <label>Lost or found
           <select name="kind" data-testid="search-kind">
-            <option value="">Any</option>
+            <option value="">Either</option>
             <option value="lost">Lost</option>
             <option value="found">Found</option>
           </select>
@@ -41,15 +65,20 @@
         <label>Category
           <select name="category_id" data-testid="search-category"><option value="">Any</option></select>
         </label>
+        <div class="actions">
+          <button type="submit" data-testid="search-submit">Search</button>
+          <button type="button" class="secondary" data-reset>Reset</button>
+        </div>
       </div>
-      <button type="submit" data-testid="search-submit">Search</button>
-      <button type="button" class="secondary" data-reset>Reset</button>
     </form>
 
     <div class="banner" data-error-banner hidden></div>
-    <p class="muted" data-result-count></p>
+    <div class="spread">
+      <h2>Property log</h2>
+      <p class="result-count" data-result-count aria-live="polite"></p>
+    </div>
     <div class="grid" data-results></div>
-    <div data-empty hidden class="empty">No items match that search.</div>
+    <div data-empty hidden></div>
   </main>
 
   <script type="module" src="/app/js/nav.js"></script>

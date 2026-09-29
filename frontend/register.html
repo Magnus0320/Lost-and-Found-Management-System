@@ -3,24 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Register — Campus Lost &amp; Found</title>
+  <script>
+    /* Apply a saved theme before first paint, so it never flashes. See js/theme.js. */
+    try { var t = localStorage.getItem("lf_theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="icon" href="/app/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Zilla+Slab:wght@600;700&display=swap">
   <link rel="stylesheet" href="/app/css/styles.css">
 </head>
 <body>
   <header class="site-header" data-nav></header>
-  <main class="narrow">
+  <main id="main" class="narrow">
+    <p class="eyebrow">Front desk</p>
     <h1>Create an account</h1>
     <p class="sub">You'll get a one-time code to verify your email.</p>
-    <div class="panel">
+    <div class="panel ticket">
+      <p class="stub">Registration card</p>
       <div class="banner" data-error-banner hidden></div>
       <form data-register-form novalidate>
         <div class="row">
           <label>First name
-            <input name="first_name" required data-testid="reg-first-name">
+            <input name="first_name" autocomplete="given-name" required data-testid="reg-first-name">
             <span class="field-error" data-field-error="first_name"></span>
           </label>
           <label>Last name
-            <input name="last_name" required data-testid="reg-last-name">
+            <input name="last_name" autocomplete="family-name" required data-testid="reg-last-name">
             <span class="field-error" data-field-error="last_name"></span>
           </label>
         </div>
@@ -61,9 +72,10 @@
         </div>
         <button type="submit" data-testid="reg-submit">Create account</button>
       </form>
-      <p class="muted" style="margin-top:16px">Already registered? <a href="/app/login.html">Log in</a></p>
+      <p class="muted small-text" style="margin:18px 0 0">Already registered? <a href="/app/login.html">Log in</a></p>
     </div>
   </main>
+
   <script type="module" src="/app/js/nav.js"></script>
   <script type="module" src="/app/js/pages/register.js"></script>
 </body>

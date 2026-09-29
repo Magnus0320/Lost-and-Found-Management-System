@@ -1,5 +1,5 @@
 import { api, auth, showError, clearError, showNotice, requireLogin, ApiError } from "../api.js";
-import { pill, esc, when, day } from "../ui.js";
+import { pill, esc, logDate, skeletonRows, emptyState } from "../ui.js";
 
 const PAGE = 50;
 
@@ -32,7 +32,7 @@ if (requireLogin()) {
       ["Claims", s.claims], ["Admins", s.admins],
     ];
     el.stats.innerHTML = tiles
-      .map(([label, n]) => `<div class="stat"><b>${n}</b><span>${esc(label)}</span></div>`)
+      .map(([label, n]) => `<div class="stat"><b>${Number(n).toLocaleString()}</b><span>${esc(label)}</span></div>`)
       .join("");
   }
 
@@ -45,21 +45,21 @@ if (requireLogin()) {
         <div class="adminrow" data-testid="admin-item-row">
           <label class="inline">
             <input type="checkbox" data-item-check value="${i.id}">
-            <span class="mono">#${i.id}</span>
+            <span class="idno"><span class="sr-only">Select item </span>#${i.id}</span>
           </label>
           <div class="grow">
             <a href="/app/item.html?id=${i.id}">${esc(i.name)}</a>
-            ${pill(i.status)} ${pill(i.kind)}
-            <div class="muted" style="font-size:12.5px">
+            ${pill(i.kind)} ${pill(i.status)}
+            <div class="sub-line">
               ${esc(i.reporter.first_name)} ${esc(i.reporter.last_name)}
-              (#${i.reporter.id}) · ${day(i.occurred_on)}
+              (#${i.reporter.id}) · <span class="mono">${logDate(i.occurred_on)}</span>
             </div>
           </div>
           <button type="button" class="danger small" data-del-item="${i.id}">Delete</button>
         </div>`
           )
           .join("")
-      : `<p class="muted">No items match.</p>`;
+      : emptyState({ art: "search", title: "No items match", body: "Try another search or reset the filters." });
 
     const from = data.total ? itemQuery.offset + 1 : 0;
     const to = Math.min(itemQuery.offset + data.results.length, data.total);
@@ -75,29 +75,29 @@ if (requireLogin()) {
           .map(
             (u) => `
         <div class="adminrow" data-testid="admin-user-row">
-          <span class="mono">#${u.id}</span>
+          <span class="idno">#${u.id}</span>
           <div class="grow">
             ${esc(u.first_name)} ${esc(u.last_name)}
-            ${u.is_admin ? `<span class="pill pill-approved">admin</span>` : ""}
-            ${u.is_verified ? "" : `<span class="pill pill-pending">unverified</span>`}
-            <div class="muted" style="font-size:12.5px">
+            ${u.is_admin ? `<span class="pill chip tone-ok">admin</span>` : ""}
+            ${u.is_verified ? "" : `<span class="pill chip tone-warn">unverified</span>`}
+            <div class="sub-line">
               ${esc(u.email)} · ${esc(u.roll_number)} · ${esc(u.course)} ${esc(u.branch)} ${u.batch}
             </div>
           </div>
           ${
             me && u.id === me.id
-              ? `<span class="muted" style="font-size:12.5px">that's you</span>`
-              : `<button type="button" class="secondary small" data-role="${u.id}"
+              ? `<span class="muted small-text">that's you</span>`
+              : `<span class="buttons"><button type="button" class="secondary small" data-role="${u.id}"
                          data-make="${u.is_admin ? "false" : "true"}">
                    ${u.is_admin ? "Revoke admin" : "Make admin"}
                  </button>
                  <button type="button" class="danger small" data-del-user="${u.id}"
-                         ${u.is_admin ? "disabled title='Revoke admin first'" : ""}>Delete</button>`
+                         ${u.is_admin ? "disabled title='Revoke admin first'" : ""}>Delete</button></span>`
           }
         </div>`
           )
           .join("")
-      : `<p class="muted">No accounts match.</p>`;
+      : emptyState({ art: "search", title: "No accounts match", body: "Search by email, name or roll number." });
     el.usersCount.textContent = `${data.results.length} shown of ${data.total}`;
   }
 
@@ -107,7 +107,7 @@ if (requireLogin()) {
           .map(
             (l) => `<div class="adminrow">
               <div class="grow">${esc(l.name)}
-                ${l.building ? `<span class="muted">(${esc(l.building)})</span>` : ""}</div>
+                ${l.building ? `<span class="muted small-text">(${esc(l.building)})</span>` : ""}</div>
               <button type="button" class="danger small" data-del-location="${l.id}">Delete</button>
             </div>`
           )
@@ -275,6 +275,8 @@ if (requireLogin()) {
   );
 
   // --- boot ---------------------------------------------------------------
+  el.items.innerHTML = skeletonRows(3);
+  el.users.innerHTML = skeletonRows(2);
   // The stored login payload says whether this account is staff, but the API
   // is the authority: a 403 from /admin/stats is what actually gates the page.
   refresh()
