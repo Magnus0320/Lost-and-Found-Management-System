@@ -145,6 +145,20 @@ export const api = {
   createLocation: (b) => request("/locations", { method: "POST", body: b, auth: true }),
   createCategory: (b) => request("/categories", { method: "POST", body: b, auth: true }),
 
+  // admin (403 for everyone else)
+  adminStats: () => request("/admin/stats", { auth: true }),
+  adminUsers: (params) => request("/admin/users", { params, auth: true }),
+  adminSetRole: (id, b) =>
+    request(`/admin/users/${id}/role`, { method: "POST", body: b, auth: true }),
+  adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE", auth: true }),
+  adminDeleteItem: (id) => request(`/admin/items/${id}`, { method: "DELETE", auth: true }),
+  adminBulkDeleteItems: (itemIds) =>
+    request("/admin/items/bulk-delete", { method: "POST", body: { item_ids: itemIds }, auth: true }),
+  adminDeleteLocation: (id) =>
+    request(`/admin/locations/${id}`, { method: "DELETE", auth: true }),
+  adminDeleteCategory: (id) =>
+    request(`/admin/categories/${id}`, { method: "DELETE", auth: true }),
+
   // misc
   notifications: () => request("/notifications", { auth: true }),
   health: () => request("/health"),

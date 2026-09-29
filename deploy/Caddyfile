@@ -1,0 +1,41 @@
+# Caddy reverse proxy: TLS termination + static-asset compression.
+#
+# SITE_ADDRESS drives everything. Set it to a hostname you control
+# (e.g. campus-lostfound.duckdns.org) and Caddy obtains and renews a free
+# Let's Encrypt certificate automatically -- no certbot, no cron, no manual
+# renewal. Leave it at the default ":80" and Caddy serves plain HTTP, which
+# is only acceptable while you are still testing, because this app posts
+# passwords and bearer tokens.
+{
+	email {$ACME_EMAIL:admin@example.invalid}
+	# Uncomment to use Let's Encrypt's staging CA while experimenting. Staging
+	# certificates are untrusted by browsers but are not rate limited, so you
+	# cannot lock yourself out by retrying a misconfigured domain.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		# Only meaningful over HTTPS; browsers ignore it on plain HTTP.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# The API owns every path except the UI, which is mounted at /app/.
+	# A bare visit to the domain would otherwise hit a 404, so send people
+	# to the interface they actually came for.
+	redir / /app/ 302
+
+	reverse_proxy api:8000 {
+		# The app reads neither of these today, but without them any future
+		# use of request.url / request.client would see Caddy rather than
+		# the real visitor.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

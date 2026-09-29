@@ -1,10 +1,11 @@
 // Shared header. Renders logged-in vs logged-out nav and wires logout.
-import { auth } from "./api.js";
+import { auth, api } from "./api.js";
 
 const LINKS = [
   { href: "/app/index.html", label: "Browse", always: true },
   { href: "/app/report.html", label: "Report an item", authOnly: true },
   { href: "/app/claims.html", label: "Claims", authOnly: true },
+  { href: "/app/admin.html", label: "Admin", adminOnly: true },
 ];
 
 export function renderNav() {
@@ -15,7 +16,12 @@ export function renderNav() {
   const loggedIn = auth.isLoggedIn;
   const user = auth.user;
 
-  const links = LINKS.filter((l) => l.always || (l.authOnly && loggedIn))
+  // `is_admin` comes off the stored login payload; the API re-checks it on
+  // every admin call, so hiding the link is convenience, not security.
+  const isAdmin = Boolean(loggedIn && user && user.is_admin);
+  const links = LINKS.filter(
+    (l) => l.always || (l.authOnly && loggedIn) || (l.adminOnly && isAdmin)
+  )
     .map(
       (l) =>
         `<a href="${l.href}" class="${here === l.href ? "active" : ""}">${l.label}</a>`
@@ -43,4 +49,33 @@ export function renderNav() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", renderNav);
+/**
+ * Re-read the signed-in user from the API and re-render if anything changed.
+ *
+ * The stored login payload is a snapshot taken at sign-in: it goes stale the
+ * moment the account changes underneath it. Granting someone admin would not
+ * show them the link until they logged out and back in -- and, worse, revoking
+ * it would leave the link sitting there. Refreshing on every page load keeps
+ * the nav honest in both directions.
+ *
+ * It is cosmetic either way: the API re-checks the role on every admin call,
+ * so a stale `is_admin: true` opens nothing.
+ */
+async function syncUser() {
+  if (!auth.isLoggedIn) return;
+  try {
+    const fresh = await api.me();
+    const before = JSON.stringify(auth.user);
+    if (JSON.stringify(fresh) !== before) {
+      auth.save(auth.token, fresh);
+      renderNav();
+    }
+  } catch {
+    /* offline, or the token expired -- request() already handles a 401 */
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderNav();   // paint immediately from the cached payload, then verify
+  syncUser();
+});

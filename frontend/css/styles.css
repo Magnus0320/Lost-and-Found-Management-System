@@ -196,3 +196,26 @@ button.small { padding: 5px 10px; font-size: 13px; }
 
 /* Keep long words/URLs from blowing out narrow layouts. */
 .card h3, .claim p, .kv dd, h1 { overflow-wrap: anywhere; }
+
+/* Contact details, shown only once a claim is approved. */
+.contact { font-size: 13px; color: var(--ink); }
+.contact a { color: var(--accent); }
+.sep { color: var(--line); margin: 0 2px; }
+.contact-row { margin-top: 8px; }
+
+/* Admin page. */
+.statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.stat {
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #fff;
+}
+.stat b { display: block; font-size: 22px; line-height: 1.2; }
+.stat span { color: var(--muted); font-size: 12.5px; }
+.adminrow {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 0; border-bottom: 1px solid var(--line);
+}
+.adminrow:last-child { border-bottom: 0; }
+.adminrow .grow { flex: 1 1 220px; min-width: 0; }
+.inline { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; white-space: nowrap; }
+.inline input[type="checkbox"] { flex: 0 0 auto; margin: 0; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 12.5px; }

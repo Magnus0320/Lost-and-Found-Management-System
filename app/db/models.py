@@ -73,12 +73,24 @@ class User(Base, TimestampMixin):
     course: Mapped[str] = mapped_column(String(10), nullable=False)
     branch: Mapped[str] = mapped_column(String(10), nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Staff flag. An admin may manage any item, read and decide any claim, and
+    #: curate locations and categories -- the oversight role the lifecycle
+    #: otherwise lacks, since a reporter decides their own claims alone.
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
 
+    # passive_deletes leaves the cascade to PostgreSQL, which already declares
+    # ON DELETE CASCADE on both foreign keys. Without it SQLAlchemy tries to
+    # de-associate the children first by nulling the FK -- which reporter_id,
+    # being NOT NULL, rejects -- so deleting an account would fail outright.
     reported_items: Mapped[list["Item"]] = relationship(
-        back_populates="reporter", foreign_keys="Item.reporter_id"
+        back_populates="reporter", foreign_keys="Item.reporter_id",
+        passive_deletes=True,
     )
     claims: Mapped[list["Claim"]] = relationship(
-        back_populates="claimant", foreign_keys="Claim.claimant_id"
+        back_populates="claimant", foreign_keys="Claim.claimant_id",
+        passive_deletes=True,
     )
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -120,3 +121,18 @@ class ItemRepository(BaseRepository):
             .offset(offset)
         )
         return total, list(self.db.execute(page_stmt).scalars())
+
+    def delete_many(self, item_ids: list[int]) -> int:
+        """Delete items by id in one statement; returns how many went.
+
+        Cascades to each item's claims and status events, so the audit trail
+        of a deleted item goes with it rather than being orphaned.
+        """
+        if not item_ids:
+            return 0
+        result = self.db.execute(sa_delete(Item).where(Item.id.in_(item_ids)))
+        self.db.flush()
+        return int(result.rowcount or 0)
+
+    def count(self) -> int:
+        return self.db.execute(select(func.count(Item.id))).scalar_one()

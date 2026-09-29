@@ -48,7 +48,36 @@ class UserResponse(ORMModel):
     course: str
     branch: str
     is_verified: bool
+    is_admin: bool = False
     created_at: datetime
+
+
+class PublicUserResponse(ORMModel):
+    """Another user, as seen by someone who is not them.
+
+    Contact details are withheld by default: ``contact_email`` has to be filled
+    in deliberately by the caller (see ``of``), so a plain
+    ``model_validate(user)`` -- which is what every list endpoint does -- can
+    never leak an address by accident.
+
+    It is disclosed at exactly one moment: once a claim is approved, the
+    reporter and the claimant need to arrange the physical handover, so each
+    can see the other's address. Withdrawing the approval takes it away again.
+    """
+
+    id: int
+    first_name: str
+    last_name: str
+    contact_email: EmailStr | None = None
+
+    @classmethod
+    def of(cls, user, *, disclose_contact: bool = False) -> "PublicUserResponse":
+        return cls(
+            id=user.id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            contact_email=user.email if disclose_contact else None,
+        )
 
 
 class TokenResponse(BaseModel):

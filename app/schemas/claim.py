@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.db.models import ClaimStatus
-from app.schemas.auth import UserResponse
+from app.schemas.auth import PublicUserResponse
 from app.schemas.common import ORMModel
 
 
@@ -24,11 +24,19 @@ class ClaimDecisionRequest(BaseModel):
 class ClaimResponse(ORMModel):
     id: int
     item_id: int
+    item_name: str | None = None
     status: ClaimStatus
     evidence: str
     created_at: datetime
     decided_at: datetime | None
-    claimant: UserResponse
+    claimant: PublicUserResponse
+    reporter: PublicUserResponse | None = Field(
+        None,
+        description=(
+            "The user who reported the item. Carried here so the claimant can "
+            "see who to contact without a second request."
+        ),
+    )
 
 
 class ClaimListResponse(BaseModel):

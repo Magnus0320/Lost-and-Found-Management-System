@@ -1,23 +1,29 @@
 import { api, auth, showError, clearError, showNotice, requireLogin } from "../api.js";
-import { pill, esc, when } from "../ui.js";
+import { pill, esc, when, statusWithContact } from "../ui.js";
 
 if (requireLogin()) {
   const incoming = document.querySelector("[data-incoming]");
   const outgoing = document.querySelector("[data-outgoing]");
 
   function claimCard(c, item, withActions) {
+    // Whose address matters depends on which side of the claim you are on: the
+    // reporter needs the claimant, the claimant needs the reporter. Either way
+    // it is only there once the API has approved the disclosure.
+    const other = withActions ? c.claimant : c.reporter;
+    const name = c.item_name || (item ? item.name : "Item #" + c.item_id);
     return `
       <div class="claim" data-claim-id="${c.id}" data-testid="claim-row">
         <div class="spread">
           <span class="who">
-            <a href="/app/item.html?id=${c.item_id}">${esc(item ? item.name : "Item #" + c.item_id)}</a>
+            <a href="/app/item.html?id=${c.item_id}">${esc(name)}</a>
           </span>
-          <span data-testid="claim-status-${c.id}">${pill(c.status)}</span>
+          <span data-testid="claim-status-${c.id}">${statusWithContact(c.status, other)}</span>
         </div>
         <div class="muted" style="font-size:13px;margin-top:4px">
           ${withActions
             ? `Claimed by ${esc(c.claimant.first_name)} ${esc(c.claimant.last_name)}`
-            : `Item status: ${item ? pill(item.status) : "—"}`}
+            : `Reported by ${c.reporter ? esc(c.reporter.first_name + " " + c.reporter.last_name) : "—"}
+               · Item status: ${item ? pill(item.status) : "—"}`}
         </div>
         <p style="margin:8px 0 0">${esc(c.evidence)}</p>
         <div class="when">${when(c.created_at)}</div>
@@ -48,12 +54,12 @@ if (requireLogin()) {
       })
     );
 
+    // The claim carries its item's reporter, so splitting the two directions
+    // no longer depends on the item fetch above having succeeded.
     const me = auth.user;
-    const rows = results.filter((c) => {
-      const item = items.get(c.item_id);
-      if (ownedByMe) return item && me && item.reporter.id === me.id;
-      return true;
-    });
+    const rows = results.filter((c) =>
+      ownedByMe ? Boolean(me && c.reporter && c.reporter.id === me.id) : true
+    );
 
     target.innerHTML = rows.length
       ? rows.map((c) => claimCard(c, items.get(c.item_id), ownedByMe)).join("")
@@ -64,8 +70,9 @@ if (requireLogin()) {
   async function refresh() {
     clearError();
     try {
-      // `mine_only=true` scopes to claims I filed; the unscoped list is filtered
-      // client-side down to items I reported, since the API has no owner filter.
+      // The API only ever returns claims I am a party to. `mine_only=true` is
+      // the ones I filed; the unscoped list is split client-side into the
+      // claims filed against items I reported.
       await loadInto(outgoing, { mineOnly: true, ownedByMe: false });
       await loadInto(incoming, { mineOnly: false, ownedByMe: true });
     } catch (err) {

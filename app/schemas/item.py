@@ -5,7 +5,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 from app.lifecycle import ItemKind, ItemStatus
-from app.schemas.auth import UserResponse
+from app.schemas.auth import PublicUserResponse
 from app.schemas.common import ORMModel
 from app.schemas.location import CategoryResponse, LocationResponse
 
@@ -81,7 +81,7 @@ class ItemResponse(ORMModel):
     updated_at: datetime
     category: CategoryResponse | None
     location: LocationResponse | None
-    reporter: UserResponse
+    reporter: PublicUserResponse
 
 
 class ItemDetailResponse(ItemResponse):

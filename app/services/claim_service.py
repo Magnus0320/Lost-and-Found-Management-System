@@ -53,7 +53,7 @@ class ClaimService:
         if claim is None:
             raise NotFoundError(f"No claim with id {claim_id}.")
         item = self.items.get(claim.item_id)
-        if item.reporter_id != actor.id:
+        if item.reporter_id != actor.id and not actor.is_admin:
             raise PermissionDeniedError(
                 "Only the user who reported the item can decide its claims."
             )
@@ -83,11 +83,36 @@ class ClaimService:
         )
         return self.claims.get(claim_id)
 
+    def contact_disclosed_to(self, claim: Claim, viewer: User | None) -> bool:
+        """May `viewer` see the other party's contact details on this claim?
+
+        Only once the claim is approved, and only to the two people it is
+        actually between. Reopening the claim takes the disclosure away with
+        it, since the condition is re-evaluated on every read.
+        """
+        if viewer is None or claim.status is not ClaimStatus.APPROVED:
+            return False
+        if viewer.is_admin:
+            return True
+        return viewer.id in (claim.claimant_id, claim.item.reporter_id)
+
     def search(self, query, actor: User) -> tuple[int, list[Claim]]:
+        """Claims the actor is a party to.
+
+        A claim is between the person who filed it and the reporter of the item
+        it is against; those two can read it and nobody else. Without that
+        scope, `?item_id=` on a stranger's item would hand back the evidence
+        field, which is where people are told to put serial numbers and
+        receipts. `mine_only` narrows further, to claims the actor filed.
+
+        Admins are the exception on both counts: the oversight role is
+        pointless if it cannot see what it is meant to oversee.
+        """
         return self.claims.search(
             item_id=query.item_id,
             status=query.status,
             claimant_id=actor.id if query.mine_only else None,
+            visible_to_id=None if actor.is_admin else actor.id,
             limit=query.limit,
             offset=query.offset,
         )

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Path, status
 
 from app.db.models import User
-from app.dependencies import get_current_user, get_item_service
+from app.dependencies import get_current_user, get_item_service, get_optional_user
+from app.schemas.auth import PublicUserResponse
 from app.schemas.common import MessageResponse
 from app.schemas.item import (
     ItemCreateRequest,
@@ -15,6 +16,16 @@ from app.schemas.item import (
 from app.services.item_service import ItemService
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+
+def _with_contact(response, item, service: "ItemService", viewer) -> None:
+    """Fill in the reporter's contact details, if this viewer is entitled to them.
+
+    The schema defaults the field to None, so forgetting to call this hides the
+    address rather than exposing it.
+    """
+    if service.contact_disclosed_to(item, viewer):
+        response.reporter = PublicUserResponse.of(item.reporter, disclose_contact=True)
 
 
 @router.post(
@@ -58,9 +69,12 @@ def search_items(
 def get_item(
     item_id: int = Path(..., ge=1),
     service: ItemService = Depends(get_item_service),
+    viewer: User | None = Depends(get_optional_user),
 ) -> ItemDetailResponse:
     item = service.get_detail(item_id)
-    return ItemDetailResponse.model_validate(item)
+    response = ItemDetailResponse.model_validate(item)
+    _with_contact(response, item, service, viewer)
+    return response
 
 
 @router.patch(
@@ -90,7 +104,10 @@ def transition_status(
     current_user: User = Depends(get_current_user),
 ) -> ItemDetailResponse:
     service.transition_status(item_id, payload, current_user)
-    return ItemDetailResponse.model_validate(service.get_detail(item_id))
+    item = service.get_detail(item_id)
+    response = ItemDetailResponse.model_validate(item)
+    _with_contact(response, item, service, current_user)
+    return response
 
 
 @router.delete(

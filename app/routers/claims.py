@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Path, status
 
 from app.db.models import User
 from app.dependencies import get_claim_service, get_current_user
+from app.schemas.auth import PublicUserResponse
 from app.schemas.claim import (
     ClaimCreateRequest,
     ClaimDecisionRequest,
@@ -12,6 +13,33 @@ from app.schemas.claim import (
 from app.services.claim_service import ClaimService
 
 router = APIRouter(tags=["claims"])
+
+
+def _serialise(claim, service: ClaimService, viewer: User) -> ClaimResponse:
+    """Render a claim for one particular viewer.
+
+    Both parties are carried on the response so the claimant can see who to
+    contact without a second request. Their addresses are attached only once
+    the claim is approved, and only for the two people it is between -- the
+    viewer is one of them, so "both" means "the other person, plus your own
+    address back". Every other reader gets names only.
+    """
+    disclose = service.contact_disclosed_to(claim, viewer)
+    return ClaimResponse(
+        id=claim.id,
+        item_id=claim.item_id,
+        item_name=claim.item.name if claim.item else None,
+        status=claim.status,
+        evidence=claim.evidence,
+        created_at=claim.created_at,
+        decided_at=claim.decided_at,
+        claimant=PublicUserResponse.of(claim.claimant, disclose_contact=disclose),
+        reporter=(
+            PublicUserResponse.of(claim.item.reporter, disclose_contact=disclose)
+            if claim.item
+            else None
+        ),
+    )
 
 
 @router.post(
@@ -27,7 +55,7 @@ def file_claim(
     current_user: User = Depends(get_current_user),
 ) -> ClaimResponse:
     claim = service.file_claim(item_id, payload, current_user)
-    return ClaimResponse.model_validate(claim)
+    return _serialise(claim, service, current_user)
 
 
 @router.get("/claims", response_model=ClaimListResponse, summary="List claims")
@@ -39,7 +67,7 @@ def list_claims(
     total, results = service.search(query, current_user)
     return ClaimListResponse(
         total=total,
-        results=[ClaimResponse.model_validate(claim) for claim in results],
+        results=[_serialise(claim, service, current_user) for claim in results],
     )
 
 
@@ -55,4 +83,4 @@ def decide_claim(
     current_user: User = Depends(get_current_user),
 ) -> ClaimResponse:
     claim = service.decide(claim_id, payload, current_user)
-    return ClaimResponse.model_validate(claim)
+    return _serialise(claim, service, current_user)

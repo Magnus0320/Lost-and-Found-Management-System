@@ -1,0 +1,90 @@
+# Production stack: Caddy (TLS) -> api -> db
+#
+# Differences from docker-compose.yml, and why each one matters once the host
+# has a public IP address:
+#
+#   * Neither the database nor the API publishes a port. Only Caddy is
+#     reachable from outside; everything else talks over the private compose
+#     network. In the development file Postgres is published on 5432, which on
+#     a public host means the internet can reach your database directly.
+#   * SECRET_KEY and POSTGRES_PASSWORD have no defaults. Compose refuses to
+#     start if they are unset, rather than silently booting with
+#     "change-me-in-production" and issuing forgeable JWTs.
+#   * restart: unless-stopped, so the stack returns by itself after a reboot
+#     or a crash without anyone SSHing in.
+#
+# Usage:  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+name: lostfound-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-lostfound}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Deliberately no `ports:` -- see the header note.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-lostfound}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-lostfound}
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY is required -- generate one with `openssl rand -hex 48`}"
+      ENVIRONMENT: production
+      # scripts/entrypoint.sh runs `alembic upgrade head` before uvicorn binds
+      # the port, so the app process must not also try to migrate.
+      RUN_MIGRATIONS_ON_STARTUP: "false"
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      OTP_TTL_MINUTES: ${OTP_TTL_MINUTES:-10}
+      # MAIL_ENABLED=false keeps the one-time code in the API response as
+      # `otp_debug`, which is what lets a visitor register on a demo with no
+      # mail server behind it. Set it true and fill the rest in to send real
+      # mail -- at which point otp_debug becomes null, by design.
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@campus-lost-found.local}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+      MAIL_TIMEOUT_SECONDS: ${MAIL_TIMEOUT_SECONDS:-15}
+    # Deliberately no `ports:` -- Caddy is the only way in.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # A hostname enables automatic HTTPS; ":80" serves plain HTTP.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.invalid}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Issued certificates live here. Without this volume Caddy would ask
+      # Let's Encrypt for a new certificate on every restart and quickly hit
+      # the rate limit for the domain.
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

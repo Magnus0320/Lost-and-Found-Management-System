@@ -12,9 +12,25 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.core.errors import DomainError
-from app.routers import auth, claims, health, items, locations, notifications
+from app.routers import admin, auth, claims, health, items, locations, notifications
 
 logger = logging.getLogger(__name__)
+
+
+class RevalidatingStaticFiles(StaticFiles):
+    """Serve the UI with a mandatory revalidation.
+
+    StaticFiles sends ETag and Last-Modified but no Cache-Control, so browsers
+    fall back to *heuristic* freshness and can keep running a stale script for
+    a while after a deploy -- long enough for a shipped fix to look like it did
+    nothing. `no-cache` does not mean "do not cache": it means "ask first", and
+    the ETag answers that with a cheap 304 whenever the file has not changed.
+    """
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
 
 
 class ErrorResponse(BaseModel):
@@ -75,7 +91,7 @@ def create_app() -> FastAPI:
             content=ErrorResponse(detail=exc.detail).model_dump(),
         )
 
-    for module in (health, auth, items, claims, locations, notifications):
+    for module in (health, auth, items, claims, locations, notifications, admin):
         application.include_router(module.router)
 
     # Browser UI, served same-origin under /app/ so there is no CORS to configure
@@ -85,7 +101,7 @@ def create_app() -> FastAPI:
     if frontend_dir.is_dir():
         application.mount(
             "/app",
-            StaticFiles(directory=str(frontend_dir), html=True),
+            RevalidatingStaticFiles(directory=str(frontend_dir), html=True),
             name="frontend",
         )
     else:  # pragma: no cover - the API is fully usable without the UI

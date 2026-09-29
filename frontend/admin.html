@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Campus Lost &amp; Found</title>
+  <link rel="stylesheet" href="/app/css/styles.css">
+</head>
+<body>
+  <header class="site-header" data-nav></header>
+  <main>
+    <h1>Admin</h1>
+    <p class="sub">Manage every item, claim and account in the system.</p>
+
+    <div class="banner" data-error-banner hidden></div>
+    <div class="notice" data-notice hidden></div>
+
+    <div class="panel" data-denied hidden>
+      <h2 style="margin-top:0;font-size:17px">Not an administrator</h2>
+      <p class="muted">
+        This account does not have staff access. An existing admin can grant it,
+        or it can be granted from the command line with
+        <code>python scripts/make_admin.py your@email</code>.
+      </p>
+    </div>
+
+    <div data-admin hidden>
+      <div class="panel">
+        <div class="statgrid" data-stats></div>
+      </div>
+
+      <!-- Items -->
+      <div class="panel">
+        <div class="spread">
+          <h2 style="margin:0;font-size:17px">Items</h2>
+          <button type="button" class="secondary small" data-refresh>Refresh</button>
+        </div>
+        <form class="row" data-item-filter style="margin-top:12px">
+          <label style="flex:2 1 200px">Search
+            <input name="q" placeholder="name or description" data-testid="admin-item-q">
+          </label>
+          <label style="flex:1 1 140px">Status
+            <select name="status">
+              <option value="">Any</option>
+              <option value="reported">reported</option>
+              <option value="matched">matched</option>
+              <option value="claimed">claimed</option>
+              <option value="closed">closed</option>
+            </select>
+          </label>
+          <label style="flex:1 1 140px">Reported by
+            <input name="reporter_id" placeholder="user id" inputmode="numeric">
+          </label>
+          <div style="flex:0 0 auto;display:flex;gap:8px;align-items:flex-end">
+            <button type="submit" class="small">Filter</button>
+            <button type="button" class="secondary small" data-item-reset>Reset</button>
+          </div>
+        </form>
+
+        <div class="spread" style="margin-top:14px">
+          <label class="inline">
+            <input type="checkbox" data-select-all data-testid="admin-select-all">
+            Select all shown
+          </label>
+          <button type="button" class="danger small" data-bulk-delete
+                  data-testid="admin-bulk-delete" disabled>Delete selected</button>
+        </div>
+        <div data-items data-testid="admin-items"></div>
+        <div class="spread" style="margin-top:10px">
+          <span class="muted" data-items-count></span>
+          <span>
+            <button type="button" class="secondary small" data-page-prev>Previous</button>
+            <button type="button" class="secondary small" data-page-next>Next</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- Accounts -->
+      <div class="panel">
+        <h2 style="margin-top:0;font-size:17px">Accounts</h2>
+        <form class="row" data-user-filter>
+          <label style="flex:2 1 220px">Search
+            <input name="q" placeholder="email, name or roll number" data-testid="admin-user-q">
+          </label>
+          <div style="flex:0 0 auto;display:flex;gap:8px;align-items:flex-end">
+            <button type="submit" class="small">Filter</button>
+            <button type="button" class="secondary small" data-user-reset>Reset</button>
+          </div>
+        </form>
+        <div data-users data-testid="admin-users" style="margin-top:12px"></div>
+        <div class="muted" data-users-count style="margin-top:10px"></div>
+      </div>
+
+      <!-- Reference data -->
+      <div class="panel">
+        <h2 style="margin-top:0;font-size:17px">Locations &amp; categories</h2>
+        <div class="row">
+          <div style="flex:1 1 260px">
+            <h3 style="font-size:14px;margin:8px 0">Locations</h3>
+            <div data-locations data-testid="admin-locations"></div>
+          </div>
+          <div style="flex:1 1 260px">
+            <h3 style="font-size:14px;margin:8px 0">Categories</h3>
+            <div data-categories data-testid="admin-categories"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="/app/js/nav.js"></script>
+  <script type="module" src="/app/js/pages/admin.js"></script>
+</body>
+</html>

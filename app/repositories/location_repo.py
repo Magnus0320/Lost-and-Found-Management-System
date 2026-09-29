@@ -22,6 +22,11 @@ class LocationRepository(BaseRepository):
         self.db.flush()
         return location
 
+    def delete(self, location: Location) -> None:
+        """Items referencing it keep existing; their location_id is SET NULL."""
+        self.db.delete(location)
+        self.db.flush()
+
     def list_all(self, limit: int = 100, offset: int = 0) -> tuple[int, list[Location]]:
         total = self.db.execute(select(func.count(Location.id))).scalar_one()
         stmt = select(Location).order_by(Location.name).limit(limit).offset(offset)
@@ -41,6 +46,11 @@ class CategoryRepository(BaseRepository):
         self.db.add(category)
         self.db.flush()
         return category
+
+    def delete(self, category: Category) -> None:
+        """Items referencing it keep existing; their category_id is SET NULL."""
+        self.db.delete(category)
+        self.db.flush()
 
     def list_all(self) -> tuple[int, list[Category]]:
         total = self.db.execute(select(func.count(Category.id))).scalar_one()

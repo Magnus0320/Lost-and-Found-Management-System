@@ -1,5 +1,5 @@
 import { api, auth, showError, clearError, showNotice, formData, qs, ApiError } from "../api.js";
-import { pill, esc, when, day } from "../ui.js";
+import { pill, esc, when, day, contactLine, statusWithContact } from "../ui.js";
 
 // Mirrors app/lifecycle.py ALLOWED_TRANSITIONS so the UI only offers moves the
 // API will accept. The API remains the authority: it re-validates every move.
@@ -17,6 +17,8 @@ const el = {
   buttons: document.querySelector("[data-transition-buttons]"),
   claimPanel: document.querySelector("[data-claim-panel]"),
   claimForm: document.querySelector("[data-claim-form]"),
+  myClaimPanel: document.querySelector("[data-my-claim-panel]"),
+  myClaim: document.querySelector("[data-my-claim]"),
   claimsPanel: document.querySelector("[data-item-claims-panel]"),
   claims: document.querySelector("[data-item-claims]"),
   history: document.querySelector("[data-history]"),
@@ -37,8 +39,12 @@ function renderItem(item) {
   document.querySelector('[data-testid="item-category"]').textContent =
     item.category ? item.category.name : "—";
   document.querySelector('[data-testid="item-date"]').textContent = day(item.occurred_on);
-  document.querySelector('[data-testid="item-reporter"]').textContent =
-    `${item.reporter.first_name} ${item.reporter.last_name}`;
+  // The address is only present once this viewer's claim has been approved;
+  // otherwise contactLine() renders nothing and just the name shows.
+  const reporterContact = contactLine(item.reporter, { withName: false });
+  document.querySelector('[data-testid="item-reporter"]').innerHTML =
+    `${esc(item.reporter.first_name)} ${esc(item.reporter.last_name)}` +
+    (reporterContact ? `<div class="contact-row">${reporterContact}</div>` : "");
   el.item.hidden = false;
 
   el.history.innerHTML = (item.status_events || [])
@@ -69,13 +75,47 @@ function renderItem(item) {
       : `<p class="muted">This item is closed. No further changes.</p>`;
   }
 
-  // Non-owner: claim form, only while the item is still open
+  // Non-owner: claim form, only while the item is still open. loadMyClaim()
+  // takes the form away again if they have already filed one.
   const canClaim = Boolean(me) && !isOwner && item.status !== "closed";
   el.claimPanel.hidden = !canClaim;
+
+  // Non-owner: the outcome of the claim they filed, if any.
+  el.myClaimPanel.hidden = true;
+  if (me && !isOwner) loadMyClaim();
 
   // Owner: claims filed on this item
   el.claimsPanel.hidden = !isOwner;
   if (isOwner) loadClaims();
+}
+
+/** The viewer's own claim on this item -- its decision, and who to contact. */
+async function loadMyClaim() {
+  try {
+    const { results } = await api.listClaims({ item_id: itemId, mine_only: true, limit: 1 });
+    const mine = results[0];
+    if (!mine) return;
+
+    // They have already filed; the form would only ever return 409.
+    el.claimPanel.hidden = true;
+    el.myClaimPanel.hidden = false;
+
+    const outcome = {
+      pending: "Waiting for the reporter to decide.",
+      approved: "Approved — arrange the handover with the reporter.",
+      rejected: "The reporter rejected this claim.",
+    }[mine.status] || "";
+
+    el.myClaim.innerHTML = `
+      <div class="spread">
+        <span data-testid="my-claim-status">${statusWithContact(mine.status, mine.reporter)}</span>
+        <span class="when">${when(mine.created_at)}</span>
+      </div>
+      <p class="muted" style="margin:8px 0 0">${esc(outcome)}</p>
+      <p style="margin:8px 0 0">${esc(mine.evidence)}</p>`;
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 401)) showError(err);
+  }
 }
 
 async function loadClaims() {
@@ -88,7 +128,7 @@ async function loadClaims() {
         <div class="claim" data-claim-id="${c.id}" data-testid="claim-row">
           <div class="spread">
             <span class="who">${esc(c.claimant.first_name)} ${esc(c.claimant.last_name)}</span>
-            <span data-testid="claim-status-${c.id}">${pill(c.status)}</span>
+            <span data-testid="claim-status-${c.id}">${statusWithContact(c.status, c.claimant, { withName: false })}</span>
           </div>
           <p class="muted" style="margin:6px 0 0">${esc(c.evidence)}</p>
           <div class="when">${when(c.created_at)}</div>

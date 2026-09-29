@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Claim, ClaimStatus
+from app.db.models import Claim, ClaimStatus, Item
 from app.repositories.base import BaseRepository
 
-_EAGER = (selectinload(Claim.claimant),)
+# The reporter of the item travels with every claim: both sides of an approved
+# claim are shown to each other, so serialising one needs both users loaded.
+_EAGER = (
+    selectinload(Claim.claimant),
+    selectinload(Claim.item).selectinload(Item.reporter),
+)
 
 
 class ClaimRepository(BaseRepository):
@@ -44,6 +49,7 @@ class ClaimRepository(BaseRepository):
         item_id: int | None = None,
         status: ClaimStatus | None = None,
         claimant_id: int | None = None,
+        visible_to_id: int | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[int, list[Claim]]:
@@ -54,6 +60,18 @@ class ClaimRepository(BaseRepository):
             filters.append(Claim.status == status)
         if claimant_id is not None:
             filters.append(Claim.claimant_id == claimant_id)
+        if visible_to_id is not None:
+            # A claim is between two people: whoever filed it, and whoever
+            # reported the item it is against. Nobody else can read it -- the
+            # evidence field holds serial numbers and receipts.
+            filters.append(
+                or_(
+                    Claim.claimant_id == visible_to_id,
+                    Claim.item_id.in_(
+                        select(Item.id).where(Item.reporter_id == visible_to_id)
+                    ),
+                )
+            )
 
         count_stmt = select(func.count(Claim.id))
         page_stmt = select(Claim).options(*_EAGER)
@@ -65,8 +83,33 @@ class ClaimRepository(BaseRepository):
         page_stmt = page_stmt.order_by(Claim.created_at.desc()).limit(limit).offset(offset)
         return total, list(self.db.execute(page_stmt).scalars())
 
+    def reopen_approved_for_item(self, item_id: int) -> list[Claim]:
+        """Send every approved claim on an item back to `pending`.
+
+        Called when the item is moved back out of `claimed`: the approval is
+        what put it there, so undoing the one has to undo the other, or the
+        item and its claim end up describing different realities.
+        """
+        stmt = (
+            select(Claim)
+            .where(Claim.item_id == item_id, Claim.status == ClaimStatus.APPROVED)
+            .options(*_EAGER)
+        )
+        claims = list(self.db.execute(stmt).scalars())
+        for claim in claims:
+            claim.status = ClaimStatus.PENDING
+            claim.decided_at = None
+            claim.decided_by_id = None
+            self.db.add(claim)
+        if claims:
+            self.db.flush()
+        return claims
+
     def count_approved_for_item(self, item_id: int) -> int:
         stmt = select(func.count(Claim.id)).where(
             Claim.item_id == item_id, Claim.status == ClaimStatus.APPROVED
         )
         return self.db.execute(stmt).scalar_one()
+
+    def count(self) -> int:
+        return self.db.execute(select(func.count(Claim.id))).scalar_one()

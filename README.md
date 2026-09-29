@@ -122,10 +122,53 @@ itself on boot while using `--reload`.
 | GET/POST | `/locations`              | Campus locations                     |
 | GET/POST | `/categories`             | Item categories                      |
 | GET    | `/notifications`            | Your notifications                   |
+| GET    | `/admin/stats`              | Row counts (**admin**)               |
+| GET    | `/admin/users`              | List/search every account (**admin**)|
+| POST   | `/admin/users/{id}/role`    | Grant or revoke staff (**admin**)    |
+| DELETE | `/admin/users/{id}`         | Delete an account (**admin**)        |
+| DELETE | `/admin/items/{id}`         | Delete any item (**admin**)          |
+| POST   | `/admin/items/bulk-delete`  | Delete up to 500 items (**admin**)   |
+| DELETE | `/admin/locations/{id}`     | Delete a location (**admin**)        |
+| DELETE | `/admin/categories/{id}`    | Delete a category (**admin**)        |
 
 Search accepts `q`, `category_id`, `location_id`, `status`, `kind`,
 `reporter_id`, `limit`, `offset` — all validated by a Pydantic model, so query
 strings are typed the same way request bodies are.
+
+### Who can see and do what
+
+Ownership, not roles, drives the ordinary rules: you may edit and transition the
+items **you** reported, and decide the claims filed against them. Two things are
+narrower than that:
+
+* **Claims are private to the two people they are between** — the claimant and
+  the item's reporter. The `evidence` field is where people put serial numbers
+  and receipts, so `GET /claims?item_id=` on a stranger's item returns nothing
+  rather than handing that out.
+* **Contact details are disclosed on approval only.** Item and claim responses
+  carry a name, never an address, until a claim between the two parties is
+  approved — at which point each sees the other's `contact_email` so they can
+  arrange the handover. Withdrawing the approval takes it away again, because
+  the condition is re-evaluated on every read rather than stored.
+
+`is_admin` is the one role. It exists because the lifecycle otherwise has no
+oversight at all: a reporter decides the claims on their own item, so a wrong
+decision has nobody to correct it. An admin may manage any item, read and decide
+any claim, curate locations and categories, and administer accounts.
+
+The first admin has to be made out-of-band — `/admin/users/{id}/role` needs an
+admin to call it, so there would be no way in otherwise:
+
+```bash
+docker compose exec api python scripts/make_admin.py you@example.com
+docker compose exec api python scripts/make_admin.py --list
+docker compose exec api python scripts/make_admin.py you@example.com --revoke
+```
+
+After that, admins promote each other from `/app/admin.html`. Two guards apply
+even to staff: you cannot demote or delete yourself, and deleting another admin
+requires revoking their access first — so the system cannot be left with no
+administrator by a single misclick.
 
 ### Email / OTP delivery
 
@@ -172,6 +215,7 @@ A small browser client is served by FastAPI's `StaticFiles` at **`/app/`**:
 | `/app/claims.html` | Claims on your items, and claims you filed |
 | `/app/login.html`, `register.html`, `verify.html` | Auth + OTP verification |
 | `/app/reset-request.html`, `reset-confirm.html` | Password reset |
+| `/app/admin.html` | Staff console: items, accounts, locations, categories |
 
 Deliberately plain: no framework, no build step, no npm. `frontend/js/api.js`
 is the only place that talks to the API — it attaches the bearer token, turns
