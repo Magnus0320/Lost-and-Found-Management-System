@@ -326,6 +326,75 @@ DEMO_ITEMS = (
     ),
 )
 
+#: (lost, found) posts about the same object, written by different people, so
+#: the item page's "Possible matches" panel has something to show. Each pair
+#: scores well above the suggestion threshold (0.52-0.80 against 0.25).
+DEMO_PAIRS = (
+    (
+        DemoItem(
+            "kabir", LOST, "Grey Logitech M235 wireless mouse",
+            "Grey Logitech M235 wireless mouse; the USB receiver is tucked into the "
+            "battery slot. Left at a desk after the evening lab.",
+            "Electronics", "cselab", 4,
+        ),
+        DemoItem(
+            "priya", FOUND, "Logitech wireless mouse, grey",
+            "Grey Logitech M235 mouse left next to the monitor at desk 22, USB "
+            "receiver inside the battery compartment.",
+            "Electronics", "cselab", 3,
+            # The owner spotted it under "Possible matches" and claimed it.
+            steps=(
+                ("claim", "kabir", "It's my M235 -- the receiver lives in the battery "
+                                   "slot and the left button sticks slightly."),
+            ),
+        ),
+    ),
+    (
+        DemoItem(
+            "ananya", LOST, "Scooty key on a Hello Kitty keychain",
+            "Honda Activa key on a pink Hello Kitty keychain, with a small brass "
+            "padlock key. Dropped somewhere near the mess counter.",
+            "Keys", "hostel7", 7,
+        ),
+        DemoItem(
+            "rohan", FOUND, "Honda scooter key with Hello Kitty keychain",
+            "Honda key on a pink Hello Kitty keychain plus a tiny brass key. Found "
+            "under a bench outside the mess.",
+            "Keys", "hostel7", 6,
+        ),
+    ),
+    (
+        DemoItem(
+            "priya", LOST, "Black Puma track jacket, size L",
+            "Black Puma track jacket with white stripes down the sleeves, size L. "
+            "Left on the bleachers after badminton practice.",
+            "Clothing", "sports", 9,
+        ),
+        DemoItem(
+            "aarav", FOUND, "Black Puma track jacket with white stripes",
+            "Black Puma zip-up track jacket, white sleeve stripes, size L. Found "
+            "folded on the bleachers.",
+            "Clothing", "sports", 8,
+        ),
+    ),
+    (
+        DemoItem(
+            "rohan", LOST, "H.C. Verma Concepts of Physics Vol. 1",
+            "Blue-covered Concepts of Physics, Volume 1, my name inside the front "
+            "cover and sticky notes in the optics chapter.",
+            "Books", "lecture", 5,
+        ),
+        DemoItem(
+            "sneha", FOUND, "Concepts of Physics Vol. 1 by H.C. Verma",
+            "H.C. Verma Volume 1, blue cover, yellow sticky notes in the optics "
+            "chapter. Left under a seat.",
+            "Books", "lecture", 2,
+        ),
+    ),
+)
+
+DEMO_ITEMS += tuple(item for pair in DEMO_PAIRS for item in pair)
+
 
 @dataclass
 class SeedReport:

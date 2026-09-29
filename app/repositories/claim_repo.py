@@ -162,6 +162,12 @@ class ClaimRepository(BaseRepository):
             self.db.flush()
         return claims
 
+    def count_pending_for_item(self, item_id: int) -> int:
+        stmt = select(func.count(Claim.id)).where(
+            Claim.item_id == item_id, Claim.status == ClaimStatus.PENDING
+        )
+        return self.db.execute(stmt).scalar_one()
+
     def count_open_for_item(self, item_id: int) -> int:
         """Claims on an item still pending or approved -- i.e. not rejected."""
         stmt = select(func.count(Claim.id)).where(

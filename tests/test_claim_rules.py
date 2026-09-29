@@ -7,6 +7,8 @@
   sends it back to `reported`.
 * Withdrawing an approval (claimed -> matched) reopens the claims it
   auto-rejected, since they lost to it rather than on their own merits.
+* An item cannot be relisted (matched -> reported) over pending claims, and a
+  claim can only be approved while its item is `matched`.
 """
 import uuid
 
@@ -249,3 +251,88 @@ def test_closing_keeps_auto_rejected_claims_rejected(client, auth_headers):
     client.post(f"/items/{item['id']}/status", headers=owner, json={"to_status": "closed"})
 
     assert _statuses(client, item["id"], owner) == {ca["id"]: "approved", cb["id"]: "rejected"}
+
+
+# --- relisting and approval need the right item state -----------------------
+
+def _move(client, item_id, headers, to_status):
+    return client.post(f"/items/{item_id}/status", headers=headers,
+                       json={"to_status": to_status})
+
+
+def test_relisting_is_refused_while_claims_are_pending(client, auth_headers):
+    owner, a, b = auth_headers(), auth_headers(), auth_headers()
+    item = _mk_item(client, owner)
+    _claim(client, item["id"], a)
+    _claim(client, item["id"], b)
+
+    resp = _move(client, item["id"], owner, "reported")
+    assert resp.status_code == 409, resp.text
+    assert "2 pending claim(s)" in resp.json()["detail"]
+    body = _item(client, item["id"])
+    assert body["status"] == "matched"
+    assert body["status_events"][-1]["to_status"] == "matched"  # nothing recorded
+
+
+def test_an_admin_cannot_relist_over_pending_claims_either(client, auth_headers):
+    from app.db.session import SessionLocal
+    from app.repositories.user_repo import UserRepository
+
+    owner, a, admin = auth_headers(), auth_headers(), auth_headers()
+    admin_id = client.get("/auth/me", headers=admin).json()["id"]
+    with SessionLocal() as db:
+        repo = UserRepository(db)
+        repo.set_admin(repo.get(admin_id), True)
+        db.commit()
+
+    item = _mk_item(client, owner)
+    _claim(client, item["id"], a)
+    assert _move(client, item["id"], admin, "reported").status_code == 409
+
+
+def test_relisting_without_pending_claims_is_allowed(client, auth_headers):
+    owner = auth_headers()
+    item = _mk_item(client, owner)
+    assert _move(client, item["id"], owner, "matched").status_code == 200
+    resp = _move(client, item["id"], owner, "reported")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "reported"
+
+
+def test_a_claim_on_a_reported_item_cannot_be_approved(client, auth_headers):
+    """Unreachable through the API now, but rows from before these rules can
+    still be in this state; approving one must not disclose contact details."""
+    from sqlalchemy import text
+
+    from app.db.session import engine
+
+    owner, a = auth_headers(), auth_headers()
+    item = _mk_item(client, owner)
+    ca = _claim(client, item["id"], a)
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE items SET status = 'reported' WHERE id = :id"),
+                     {"id": item["id"]})
+
+    resp = _decide(client, ca["id"], owner, True)
+    assert resp.status_code == 409, resp.text
+    assert "only be approved while the item is 'matched'" in resp.json()["detail"]
+    assert "'reported'" in resp.json()["detail"]
+    assert _statuses(client, item["id"], owner) == {ca["id"]: "pending"}
+    assert client.get(f"/items/{item['id']}",
+                      headers=a).json()["reporter"]["contact_email"] is None
+
+
+def test_a_claim_on_a_claimed_item_without_an_approval_cannot_be_approved(client, auth_headers):
+    """The reporter walked the item to 'claimed' by hand, with no claim at all;
+    a claim filed afterwards cannot be approved into it."""
+    owner, late = auth_headers(), auth_headers()
+    item = _mk_item(client, owner)
+    for state in ("matched", "claimed"):
+        assert _move(client, item["id"], owner, state).status_code == 200
+    cl = _claim(client, item["id"], late)
+
+    resp = _decide(client, cl["id"], owner, True)
+    assert resp.status_code == 409, resp.text
+    assert "it is 'claimed'" in resp.json()["detail"]
+    # Rejecting it is still fine.
+    assert _decide(client, cl["id"], owner, False).status_code == 200

@@ -135,3 +135,32 @@ def test_reset_leaves_other_accounts_alone(seed_demo, client, auth_headers, monk
     assert client.get("/auth/me", headers=real).status_code == 200
     assert client.get(f"/items/{real_item['id']}").status_code == 200
     assert client.get(f"/items/{demo_item['id']}").status_code == 404
+
+
+def test_demo_pairs_suggest_each_other(seed_demo):
+    """The pairs exist so "Possible matches" has something to show: each post
+    must find its partner, in both directions."""
+    from app.repositories.item_repo import ItemRepository
+    from app.repositories.user_repo import UserRepository
+    from app.services.item_service import ItemService
+
+    pairs = seed_demo.DEMO_PAIRS
+    assert len({lost.category for lost, _ in pairs}) == len(pairs)
+    assert len({lost.location for lost, _ in pairs}) == len(pairs)
+
+    _run(seed_demo.seed)
+    emails = {d.key: d.email for d in seed_demo.DEMO_USERS}
+
+    def check(db):
+        users, items, service = UserRepository(db), ItemRepository(db), ItemService(db)
+
+        def find(spec):
+            reporter = users.get_by_email(emails[spec.reporter])
+            return seed_demo._find_item(items, reporter, spec.name)
+
+        for lost_spec, found_spec in pairs:
+            lost, found = find(lost_spec), find(found_spec)
+            assert found.id in [s.item.id for s in service.suggest_matches(lost.id)], lost.name
+            assert lost.id in [s.item.id for s in service.suggest_matches(found.id)], found.name
+
+    _run(check)

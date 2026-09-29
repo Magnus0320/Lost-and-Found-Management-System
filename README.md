@@ -106,9 +106,10 @@ itself on boot while using `--reload`.
 ## Demo data
 
 A fresh deployment is empty. To give visitors something to browse, seed it with
-realistic campus data: 8 locations, 8 categories, 6 demo accounts, 25 lost and
-found items spread across every lifecycle state, and 8 claims (pending, approved
-and rejected).
+realistic campus data: 8 locations, 8 categories, 6 demo accounts, 33 lost and
+found items spread across every lifecycle state, and 9 claims (pending, approved
+and rejected). Four of the lost reports have a matching found post from someone
+else, so the item page's "Possible matches" panel has results to show.
 
 ```bash
 docker compose exec api python scripts/seed_demo.py           # seed
@@ -214,10 +215,15 @@ is what discloses contact details.
 * **The database enforces it as well.** A partial unique index
   (`uq_claims_one_approved_per_item`) allows one `approved` row per item, so a
   race between two approvals ends in a `409`, not two disclosures.
+* **Approval needs a `matched` item.** Approving is the `matched` → `claimed`
+  step, so it is refused (`409`) on an item in any other state, even if a
+  pending claim exists there.
 * **Rejecting the last open claim relists the item.** If a rejection leaves a
   `matched` item with no pending or approved claim, it goes back to `reported`
   with the history note "All claims rejected." If other claims are still pending,
-  it stays `matched`.
+  it stays `matched`. Relisting by hand (`matched` → `reported`) is refused
+  (`409`) while any claim is pending: decide them first, and the last rejection
+  relists the item on its own.
 * **Withdrawing an approval reopens the claims it pushed out.** Moving an item
   from `claimed` back to `matched` sends the approved claim back to `pending`,
   which removes the contact details it had disclosed. It also reopens every claim
@@ -514,7 +520,7 @@ With the compose stack running:
 
 ```bash
 TEST_DATABASE_URL=postgresql://lostfound:lostfound@localhost:5432/lostfound pytest -q
-# 155 passed
+# 161 passed
 ```
 
 Extra checks:

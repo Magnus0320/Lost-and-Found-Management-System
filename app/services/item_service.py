@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError, PermissionDeniedError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from app.db.models import ClaimStatus, Item, User
 from app.lifecycle import ItemKind, ItemStatus, IllegalTransition, assert_transition
 from app.repositories.claim_repo import ClaimRepository
@@ -116,6 +116,18 @@ class ItemService:
             assert_transition(current, payload.to_status)
         except IllegalTransition as exc:
             raise ValidationError(str(exc)) from exc
+
+        # A `reported` item reads as unclaimed, and a claim can only be approved
+        # on a `matched` one -- so relisting over pending claims would strand
+        # them. Reject them first; the last rejection relists the item itself.
+        if current is ItemStatus.MATCHED and payload.to_status is ItemStatus.REPORTED:
+            pending = self.claims.count_pending_for_item(item.id)
+            if pending:
+                raise ConflictError(
+                    f"This item has {pending} pending claim(s). Approve or reject "
+                    "them before moving it back to 'reported'; rejecting the last "
+                    "one moves it back automatically."
+                )
 
         # Moving back out of `claimed` withdraws the approval that put the item
         # there. The claim has to follow, otherwise the item reads "awaiting a

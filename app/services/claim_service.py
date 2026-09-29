@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from app.db.models import Claim, ClaimStatus, Item, User
-from app.lifecycle import ItemStatus, can_transition
+from app.lifecycle import ItemStatus
 from app.repositories.claim_repo import ClaimRepository
 from app.repositories.item_repo import ItemRepository
 from app.repositories.notification_repo import NotificationRepository
@@ -55,7 +55,8 @@ class ClaimService:
 
         * Approval is exclusive. An item may have one approved claim -- approval
           is what discloses contact details -- so approving refuses (409) while
-          another approval stands, and rejects every other pending claim.
+          another approval stands, and rejects every other pending claim. It is
+          also the matched -> claimed step, so it needs the item `matched`.
         * A rejection that leaves a `matched` item with no pending or approved
           claim sends it back to `reported`, so it is listed as unclaimed again.
         """
@@ -74,6 +75,13 @@ class ClaimService:
             raise ConflictError(
                 "This item already has an approved claim. Move the item back to "
                 "'matched' to withdraw that approval before approving another."
+            )
+        if payload.approve and item.status is not ItemStatus.MATCHED:
+            # Approval is the matched -> claimed step. Anywhere else it would
+            # disclose contact details without the item recording a handover.
+            raise ConflictError(
+                f"Claims can only be approved while the item is 'matched'; "
+                f"it is '{item.status.value}'."
             )
 
         self.claims.decide(claim, payload.approve, actor.id)
@@ -96,16 +104,15 @@ class ClaimService:
         superseded = self.claims.reject_pending_for_item(
             item.id, superseded_by=claim, decided_by_id=actor.id
         )
-        if can_transition(item.status, ItemStatus.CLAIMED):
-            previous = item.status
-            self.items.set_status(item, ItemStatus.CLAIMED)
-            self.items.record_status_event(
-                item_id=item.id,
-                from_status=previous,
-                to_status=ItemStatus.CLAIMED,
-                actor_id=actor.id,
-                note=payload.note or "Claim approved.",
-            )
+        # decide() only approves on a `matched` item.
+        self.items.set_status(item, ItemStatus.CLAIMED)
+        self.items.record_status_event(
+            item_id=item.id,
+            from_status=ItemStatus.MATCHED,
+            to_status=ItemStatus.CLAIMED,
+            actor_id=actor.id,
+            note=payload.note or "Claim approved.",
+        )
         for other in superseded:
             self.notifications.create(
                 user_id=other.claimant_id,
