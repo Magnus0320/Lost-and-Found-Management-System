@@ -11,7 +11,7 @@
 --
 --     ./scripts/dump_schema.sh
 --
--- Alembic revision at time of dump: ac938cefe45e
+-- Alembic revision at time of dump: ed222a032b93
 -- ============================================================
 
 --
@@ -148,7 +148,8 @@ CREATE TABLE public.claims (
     decided_at timestamp with time zone,
     decided_by_id integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    superseded_by_id integer
 );
 
 
@@ -366,7 +367,8 @@ CREATE TABLE public.users (
     branch character varying(10) NOT NULL,
     is_verified boolean NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    is_admin boolean DEFAULT false NOT NULL
 );
 
 
@@ -564,6 +566,13 @@ CREATE INDEX ix_claims_status ON public.claims USING btree (status);
 
 
 --
+-- Name: ix_claims_superseded_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_claims_superseded_by_id ON public.claims USING btree (superseded_by_id);
+
+
+--
 -- Name: ix_item_status_events_item_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -662,6 +671,13 @@ CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email);
 
 
 --
+-- Name: uq_claims_one_approved_per_item; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_claims_one_approved_per_item ON public.claims USING btree (item_id) WHERE (status = 'approved'::public.claim_status);
+
+
+--
 -- Name: claims claims_claimant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -683,6 +699,14 @@ ALTER TABLE ONLY public.claims
 
 ALTER TABLE ONLY public.claims
     ADD CONSTRAINT claims_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.items(id) ON DELETE CASCADE;
+
+
+--
+-- Name: claims claims_superseded_by_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.claims
+    ADD CONSTRAINT claims_superseded_by_id_fkey FOREIGN KEY (superseded_by_id) REFERENCES public.claims(id) ON DELETE SET NULL;
 
 
 --

@@ -159,9 +159,8 @@ DEMO_ITEMS = (
         "Electronics", "lecture", 9,
         steps=(
             ("claim", "kabir", "I lost a Casio calculator after my quiz in LH-101."),
-            ("reject", "kabir", None),
-            ("move", "reported", "Claimant could not describe the initials on the "
-                                 "back; listing reopened."),
+            # Its only claim rejected, the item goes back to 'reported' by itself.
+            ("reject", "kabir", "Claimant could not describe the initials on the back."),
         ),
     ),
     DemoItem(

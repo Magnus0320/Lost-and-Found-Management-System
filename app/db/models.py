@@ -220,6 +220,12 @@ class Claim(Base, TimestampMixin):
     decided_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
+    #: Set when this claim was rejected automatically because another claim on
+    #: the same item was approved. Withdrawing that approval reopens these too:
+    #: they lost to the other claim, not on their own merits.
+    superseded_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("claims.id", ondelete="SET NULL")
+    )
 
     item: Mapped["Item"] = relationship(back_populates="claims")
     claimant: Mapped["User"] = relationship(
@@ -231,6 +237,15 @@ class Claim(Base, TimestampMixin):
         Index("ix_claims_item_id", "item_id"),
         Index("ix_claims_claimant_id", "claimant_id"),
         Index("ix_claims_status", "status"),
+        Index("ix_claims_superseded_by_id", "superseded_by_id"),
+        # At most one approved claim per item: approval is what discloses
+        # contact details, so two approvals would hand them to two strangers.
+        Index(
+            "uq_claims_one_approved_per_item",
+            "item_id",
+            unique=True,
+            postgresql_where=text("status = 'approved'"),
+        ),
     )
 
 

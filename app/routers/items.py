@@ -10,8 +10,11 @@ from app.schemas.item import (
     ItemListResponse,
     ItemResponse,
     ItemSearchQuery,
+    ItemSuggestionListResponse,
+    ItemSuggestionResponse,
     ItemUpdateRequest,
     StatusTransitionRequest,
+    SuggestionQuery,
 )
 from app.services.item_service import ItemService
 
@@ -75,6 +78,31 @@ def get_item(
     response = ItemDetailResponse.model_validate(item)
     _with_contact(response, item, service, viewer)
     return response
+
+
+@router.get(
+    "/{item_id}/suggestions",
+    response_model=ItemSuggestionListResponse,
+    summary="Possible matches: similar open items of the opposite kind",
+)
+def suggest_matches(
+    item_id: int = Path(..., ge=1),
+    query: SuggestionQuery = Depends(),
+    service: ItemService = Depends(get_item_service),
+) -> ItemSuggestionListResponse:
+    suggestions = service.suggest_matches(item_id, limit=query.limit)
+    return ItemSuggestionListResponse(
+        item_id=item_id,
+        results=[
+            ItemSuggestionResponse(
+                **ItemResponse.model_validate(s.item).model_dump(),
+                score=s.score,
+                similarity=s.similarity,
+                reasons=list(s.reasons),
+            )
+            for s in suggestions
+        ],
+    )
 
 
 @router.patch(

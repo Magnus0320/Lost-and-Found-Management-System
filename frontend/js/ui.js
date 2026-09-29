@@ -1,8 +1,17 @@
 // Small rendering helpers shared across pages.
 
+// How a value reads in the UI, where that differs from the API value. The API
+// keeps 'matched'; to a visitor it means someone has claimed the item and the
+// reporter has not decided yet.
+const LABELS = { matched: "Claim pending" };
+
+export function statusLabel(value) {
+  return LABELS[value] || value;
+}
+
 export function pill(value) {
   if (!value) return "";
-  return `<span class="pill pill-${value}">${value}</span>`;
+  return `<span class="pill pill-${value}" data-value="${value}">${esc(statusLabel(value))}</span>`;
 }
 
 export function esc(s) {

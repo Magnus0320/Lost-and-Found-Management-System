@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+from app.core.errors import ConflictError
 from app.db.models import Claim, ClaimStatus, Item
 from app.repositories.base import BaseRepository
 
@@ -40,8 +42,39 @@ class ClaimRepository(BaseRepository):
         claim.decided_at = datetime.now(tz=timezone.utc)
         claim.decided_by_id = decided_by_id
         self.db.add(claim)
-        self.db.flush()
+        try:
+            self.db.flush()
+        except IntegrityError as exc:
+            # uq_claims_one_approved_per_item: the service checks first, so this
+            # is only reachable by a concurrent approval that got there first.
+            raise ConflictError("This item already has an approved claim.") from exc
         return claim
+
+    def reject_pending_for_item(
+        self, item_id: int, superseded_by: Claim, decided_by_id: int
+    ) -> list[Claim]:
+        """Reject every other pending claim on an item, recording which claim
+        won. Returns the claims it rejected."""
+        stmt = (
+            select(Claim)
+            .where(
+                Claim.item_id == item_id,
+                Claim.status == ClaimStatus.PENDING,
+                Claim.id != superseded_by.id,
+            )
+            .options(*_EAGER)
+        )
+        claims = list(self.db.execute(stmt).scalars())
+        now = datetime.now(tz=timezone.utc)
+        for claim in claims:
+            claim.status = ClaimStatus.REJECTED
+            claim.decided_at = now
+            claim.decided_by_id = decided_by_id
+            claim.superseded_by_id = superseded_by.id
+            self.db.add(claim)
+        if claims:
+            self.db.flush()
+        return claims
 
     def search(
         self,
@@ -104,6 +137,38 @@ class ClaimRepository(BaseRepository):
         if claims:
             self.db.flush()
         return claims
+
+    def reopen_superseded_by(self, claim_ids: list[int]) -> list[Claim]:
+        """Send claims that were auto-rejected in favour of `claim_ids` back to
+        `pending` -- the approval that beat them has been withdrawn."""
+        if not claim_ids:
+            return []
+        stmt = (
+            select(Claim)
+            .where(
+                Claim.superseded_by_id.in_(claim_ids),
+                Claim.status == ClaimStatus.REJECTED,
+            )
+            .options(*_EAGER)
+        )
+        claims = list(self.db.execute(stmt).scalars())
+        for claim in claims:
+            claim.status = ClaimStatus.PENDING
+            claim.decided_at = None
+            claim.decided_by_id = None
+            claim.superseded_by_id = None
+            self.db.add(claim)
+        if claims:
+            self.db.flush()
+        return claims
+
+    def count_open_for_item(self, item_id: int) -> int:
+        """Claims on an item still pending or approved -- i.e. not rejected."""
+        stmt = select(func.count(Claim.id)).where(
+            Claim.item_id == item_id,
+            Claim.status.in_((ClaimStatus.PENDING, ClaimStatus.APPROVED)),
+        )
+        return self.db.execute(stmt).scalar_one()
 
     def count_approved_for_item(self, item_id: int) -> int:
         stmt = select(func.count(Claim.id)).where(

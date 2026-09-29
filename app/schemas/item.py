@@ -61,6 +61,12 @@ class ItemSearchQuery(BaseModel):
     offset: int = Field(0, ge=0)
 
 
+class SuggestionQuery(BaseModel):
+    """Query string for match suggestions."""
+
+    limit: int = Field(5, ge=1, le=5, description="At most 5 suggestions are returned.")
+
+
 class StatusEventResponse(ORMModel):
     id: int
     from_status: ItemStatus | None
@@ -93,3 +99,23 @@ class ItemListResponse(BaseModel):
     limit: int
     offset: int
     results: list[ItemResponse]
+
+
+class ItemSuggestionResponse(ItemResponse):
+    """A possible match: the same public fields as search, plus why it matched.
+
+    Built from ``ItemResponse``, whose reporter never carries contact details --
+    a suggestion is a stranger's post, and nothing about it has been approved.
+    """
+
+    score: float = Field(..., description="Similarity plus boosts; higher is better.")
+    similarity: float = Field(..., description="pg_trgm text similarity, 0-1.")
+    reasons: list[str] = Field(
+        default_factory=list,
+        examples=[["same category", "within 14 days"]],
+    )
+
+
+class ItemSuggestionListResponse(BaseModel):
+    item_id: int
+    results: list[ItemSuggestionResponse]

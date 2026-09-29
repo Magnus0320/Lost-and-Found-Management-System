@@ -1,14 +1,42 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import timedelta
+
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError, PermissionDeniedError, ValidationError
 from app.db.models import ClaimStatus, Item, User
-from app.lifecycle import ItemStatus, IllegalTransition, assert_transition
+from app.lifecycle import ItemKind, ItemStatus, IllegalTransition, assert_transition
 from app.repositories.claim_repo import ClaimRepository
 from app.repositories.item_repo import ItemRepository
 from app.repositories.location_repo import CategoryRepository, LocationRepository
 from app.repositories.notification_repo import NotificationRepository
+
+
+#: Match suggestions: a lost item is compared with found items and vice versa.
+#: Text similarity is pg_trgm's, blended 60/40 between name-vs-name and the
+#: full text. Names discriminate far better -- descriptions are prose, and
+#: unrelated prose shares enough common trigrams to score 0.15-0.25 -- so they
+#: carry most of the weight. Genuine pairs measured 0.38-0.55 on this blend,
+#: unrelated ones at most ~0.17, hence the 0.25 cut-off.
+SUGGESTION_LIMIT = 5
+SUGGESTION_NAME_WEIGHT = 0.6
+SUGGESTION_MIN_SIMILARITY = 0.25
+SUGGESTION_CATEGORY_BOOST = 0.10
+SUGGESTION_LOCATION_BOOST = 0.05
+SUGGESTION_DATE_BOOST = 0.05
+SUGGESTION_DATE_WINDOW = timedelta(days=14)
+
+_OPPOSITE = {ItemKind.LOST: ItemKind.FOUND, ItemKind.FOUND: ItemKind.LOST}
+
+
+@dataclass(frozen=True)
+class Suggestion:
+    item: Item
+    score: float
+    similarity: float
+    reasons: tuple[str, ...]
 
 
 class ItemService:
@@ -77,7 +105,11 @@ class ItemService:
 
     def transition_status(self, item_id: int, payload, actor: User) -> Item:
         """Move an item along reported -> matched -> claimed -> closed."""
-        item = self.get(item_id)
+        # Locked like a claim decision, since moving out of `claimed` rewrites
+        # the item's claims too.
+        item = self.items.get_for_update(item_id)
+        if item is None:
+            raise NotFoundError(f"No item with id {item_id}.")
         self._require_reporter(item, actor)
         current = item.status
         try:
@@ -89,9 +121,15 @@ class ItemService:
         # there. The claim has to follow, otherwise the item reads "awaiting a
         # decision" while carrying a claim that is already decided and, because
         # decisions are one-shot, can never be decided again.
-        reopened = []
+        #
+        # The claims that approval auto-rejected are reopened with it: they lost
+        # to the approved claim, not on their own merits, and a decided claim can
+        # never be decided again -- so leaving them rejected would lock out what
+        # may be the real owner for good.
+        reopened, revived = [], []
         if current is ItemStatus.CLAIMED and payload.to_status is not ItemStatus.CLOSED:
             reopened = self.claims.reopen_approved_for_item(item.id)
+            revived = self.claims.reopen_superseded_by([c.id for c in reopened])
 
         self.items.set_status(item, payload.to_status)
         self.items.record_status_event(
@@ -119,7 +157,54 @@ class ItemService:
                     "It is pending again."
                 ),
             )
+        for claim in revived:
+            self.notifications.create(
+                user_id=claim.claimant_id,
+                item_id=item.id,
+                message=(
+                    f"The claim approved on '{item.name}' was withdrawn, so yours "
+                    "is pending again."
+                ),
+            )
         return self.items.get(item_id)
+
+    def suggest_matches(self, item_id: int, limit: int = SUGGESTION_LIMIT) -> list[Suggestion]:
+        """Items of the opposite kind that may be the same object.
+
+        Excludes closed items and the reporter's own posts. A closed item has
+        been resolved, so it gets no suggestions either.
+        """
+        item = self.get(item_id)
+        if item.status is ItemStatus.CLOSED:
+            return []
+        rows = self.items.suggest_matches(
+            item,
+            kind=_OPPOSITE[item.kind],
+            name_weight=SUGGESTION_NAME_WEIGHT,
+            min_similarity=SUGGESTION_MIN_SIMILARITY,
+            category_boost=SUGGESTION_CATEGORY_BOOST,
+            location_boost=SUGGESTION_LOCATION_BOOST,
+            date_boost=SUGGESTION_DATE_BOOST,
+            date_from=item.occurred_on - SUGGESTION_DATE_WINDOW,
+            date_to=item.occurred_on + SUGGESTION_DATE_WINDOW,
+            limit=min(limit, SUGGESTION_LIMIT),
+        )
+        suggestions = []
+        for match, score, similarity, same_category, same_location, close_date in rows:
+            reasons = [
+                label for label, hit in (
+                    ("same category", same_category),
+                    ("same location", same_location),
+                    (f"within {SUGGESTION_DATE_WINDOW.days} days", close_date),
+                ) if hit
+            ]
+            suggestions.append(Suggestion(
+                item=match,
+                score=round(float(score), 3),
+                similarity=round(float(similarity), 3),
+                reasons=tuple(reasons),
+            ))
+        return suggestions
 
     def delete(self, item_id: int, actor: User) -> None:
         item = self.get(item_id)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, or_, select
+from sqlalchemy import Float, case, func, literal, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.db.models import Item, ItemStatusEvent
@@ -18,6 +20,15 @@ _EAGER = (
 class ItemRepository(BaseRepository):
     def get(self, item_id: int) -> Item | None:
         stmt = select(Item).where(Item.id == item_id).options(*_EAGER)
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def get_for_update(self, item_id: int) -> Item | None:
+        """Fetch an item and lock its row until the transaction ends.
+
+        Claim decisions and filings take this lock, so two of them on the same
+        item run one after the other and each sees the other's outcome.
+        """
+        stmt = select(Item).where(Item.id == item_id).options(*_EAGER).with_for_update()
         return self.db.execute(stmt).scalar_one_or_none()
 
     def get_with_history(self, item_id: int) -> Item | None:
@@ -121,6 +132,87 @@ class ItemRepository(BaseRepository):
             .offset(offset)
         )
         return total, list(self.db.execute(page_stmt).scalars())
+
+    def suggest_matches(
+        self,
+        source: Item,
+        *,
+        kind: ItemKind,
+        name_weight: float,
+        min_similarity: float,
+        category_boost: float,
+        location_boost: float,
+        date_boost: float,
+        date_from: date,
+        date_to: date,
+        limit: int,
+    ) -> list[tuple[Item, float, float, bool, bool, bool]]:
+        """Open items of `kind` that read like `source`, best first.
+
+        Text similarity is pg_trgm ``similarity()``: a weighted blend of
+        name-vs-name and (name + description)-vs-(name + description). Rows below
+        `min_similarity` are dropped *before* the boosts are added, so sharing a
+        category or a location can never turn an unrelated item into a match.
+
+        This scores every open item of the opposite kind -- a filter on a
+        computed score cannot use the trigram GIN indexes. Returns
+        ``(item, score, similarity, same_category, same_location, close_date)``.
+        """
+        source_text = f"{source.name} {source.description}"
+        similarity = (
+            name_weight * func.similarity(Item.name, source.name)
+            + (1 - name_weight)
+            * func.similarity(Item.name + " " + Item.description, source_text)
+        ).label("similarity")
+
+        def flag(condition):
+            return condition if condition is not None else literal(False)
+
+        same_category = flag(
+            Item.category_id == source.category_id if source.category_id else None
+        )
+        same_location = flag(
+            Item.location_id == source.location_id if source.location_id else None
+        )
+        close_date = Item.occurred_on.between(date_from, date_to)
+
+        def boost(condition, amount: float):
+            return case((condition, literal(amount, Float)), else_=literal(0.0, Float))
+
+        scored = (
+            select(
+                Item.id.label("id"),
+                similarity,
+                same_category.label("same_category"),
+                same_location.label("same_location"),
+                close_date.label("close_date"),
+            )
+            .where(
+                Item.kind == kind,
+                Item.status != ItemStatus.CLOSED,
+                Item.reporter_id != source.reporter_id,
+                Item.id != source.id,
+            )
+            .subquery()
+        )
+        score = (
+            scored.c.similarity
+            + boost(scored.c.same_category, category_boost)
+            + boost(scored.c.same_location, location_boost)
+            + boost(scored.c.close_date, date_boost)
+        ).label("score")
+        stmt = (
+            select(
+                Item, score, scored.c.similarity, scored.c.same_category,
+                scored.c.same_location, scored.c.close_date,
+            )
+            .join(scored, Item.id == scored.c.id)
+            .where(scored.c.similarity >= min_similarity)
+            .options(*_EAGER)
+            .order_by(score.desc(), scored.c.similarity.desc(), Item.id.desc())
+            .limit(limit)
+        )
+        return [tuple(row) for row in self.db.execute(stmt).all()]
 
     def delete_many(self, item_ids: list[int]) -> int:
         """Delete items by id in one statement; returns how many went.

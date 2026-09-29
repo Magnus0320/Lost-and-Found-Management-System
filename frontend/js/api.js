@@ -126,6 +126,7 @@ export const api = {
   // items
   searchItems: (params) => request("/items", { params }),
   getItem: (id) => request(`/items/${id}`),
+  itemSuggestions: (id) => request(`/items/${id}/suggestions`),
   createItem: (b) => request("/items", { method: "POST", body: b, auth: true }),
   updateItem: (id, b) => request(`/items/${id}`, { method: "PATCH", body: b, auth: true }),
   transitionStatus: (id, b) =>

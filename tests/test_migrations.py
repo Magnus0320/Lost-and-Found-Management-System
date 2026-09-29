@@ -78,3 +78,42 @@ def test_no_pending_schema_changes(client):
     # Ignore the alembic_version bookkeeping table, which is not in our metadata.
     diff = [d for d in diff if "alembic_version" not in str(d)]
     assert not diff, f"models drifted from migrations: {diff}"
+
+
+def test_one_approval_migration_refuses_existing_duplicates(client, auth_headers):
+    """uq_claims_one_approved_per_item cannot be built over bad data, and the
+    migration says which items are at fault rather than picking a winner."""
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.db.migrations import alembic_config
+    from app.db.session import engine
+
+    owner, a, b = auth_headers(), auth_headers(), auth_headers()
+    item = client.post("/items", headers=owner, json={
+        "name": "Doubly approved", "description": "Predates the rule",
+        "kind": "found", "occurred_on": "2026-08-01"}).json()
+    claim_ids = [
+        client.post(f"/items/{item['id']}/claims", headers=h,
+                    json={"evidence": "mine"}).json()["id"]
+        for h in (a, b)
+    ]
+
+    cfg = alembic_config()
+    command.downgrade(cfg, "b052f2f503ff")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE claims SET status = 'approved' WHERE id = ANY(:ids)"),
+                         {"ids": claim_ids})
+        with pytest.raises(RuntimeError, match=rf"item {item['id']} \(2 approved\)"):
+            command.upgrade(cfg, "head")
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM items WHERE id = :id"), {"id": item["id"]})
+        command.upgrade(cfg, "head")
+
+    from alembic.script import ScriptDirectory
+
+    from app.db.migrations import current_revision
+
+    assert current_revision() == ScriptDirectory.from_config(cfg).get_current_head()

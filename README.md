@@ -11,6 +11,10 @@ reported  ->  matched  ->  claimed  ->  closed
 
 `closed` is terminal. Illegal moves are rejected by the service layer, and every
 transition is appended to an audit table rather than overwriting the previous state.
+Claims drive most of the moves: filing one moves a `reported` item to `matched`,
+approving one moves it to `claimed`, and rejecting the last open one sends it back
+to `reported` (see [Claims](#claims)). The web UI shows `matched` as **"Claim
+pending"**; the API value stays `matched`.
 
 ---
 
@@ -137,6 +141,7 @@ Locations and categories stay, because real items may use them too.
 | POST   | `/items`                    | **Register** a lost/found item       |
 | GET    | `/items`                    | **Search** items                     |
 | GET    | `/items/{id}`               | One item plus its lifecycle history  |
+| GET    | `/items/{id}/suggestions`   | Possible matches of the opposite kind |
 | PATCH  | `/items/{id}`               | Edit descriptive fields              |
 | POST   | `/items/{id}/status`        | **Transition** lifecycle state       |
 | DELETE | `/items/{id}`               | Delete an item you reported          |
@@ -194,6 +199,53 @@ even to staff: you cannot demote or delete yourself, and deleting another admin
 requires revoking their access first — so the system cannot be left with no
 administrator by a single misclick.
 
+### Claims
+
+One item can have many claims but **at most one approved claim**, because approval
+is what discloses contact details.
+
+* **Approving a claim rejects every other pending claim** on the item in the same
+  transaction, and each of those claimants is notified that another claim was
+  approved.
+* **A second approval is refused** with `409` while one stands. That applies to
+  admins too. A claim can still be filed on a `claimed` item, but it cannot be
+  approved until the standing approval is withdrawn. Filing it does not move the
+  item.
+* **The database enforces it as well.** A partial unique index
+  (`uq_claims_one_approved_per_item`) allows one `approved` row per item, so a
+  race between two approvals ends in a `409`, not two disclosures.
+* **Rejecting the last open claim relists the item.** If a rejection leaves a
+  `matched` item with no pending or approved claim, it goes back to `reported`
+  with the history note "All claims rejected." If other claims are still pending,
+  it stays `matched`.
+* **Withdrawing an approval reopens the claims it pushed out.** Moving an item
+  from `claimed` back to `matched` sends the approved claim back to `pending`,
+  which removes the contact details it had disclosed. It also reopens every claim
+  that approval auto-rejected (tracked in `claims.superseded_by_id`), because
+  they lost to that claim rather than on their own merits. Decisions are
+  one-shot, so leaving them rejected would lock out what may be the real owner.
+  Claims that were rejected directly stay rejected, and closing a `claimed` item
+  changes no claims.
+
+### Match suggestions
+
+`GET /items/{id}/suggestions` lists up to 5 open items of the **opposite kind**
+(a lost report gets found items, and vice versa), leaving out closed items and
+the reporter's own posts. A closed item gets no suggestions.
+
+Candidates are ranked by `pg_trgm` similarity: 60% name-to-name, 40% full text
+(name + description) to full text. Names carry more weight because descriptions
+are prose, and unrelated prose already scores 0.15–0.25 on shared common words.
+Anything below **0.25** is dropped. Boosts are added only after that cut-off, so
+they can never promote an unrelated item: **+0.10** for the same category,
+**+0.05** for the same location, and **+0.05** for a date within ±14 days. Each
+result carries `score`, `similarity` and the `reasons` it was boosted. Results
+use the same public item fields as search, so they never include contact details.
+
+This scores every open item of the opposite kind. A filter on a computed score
+cannot use the trigram GIN indexes, so it has not been tuned for very large
+tables.
+
 ### Email / OTP delivery
 
 Two modes, switched by `MAIL_ENABLED`:
@@ -234,7 +286,7 @@ A small browser client is served by FastAPI's `StaticFiles` at **`/app/`**:
 | Page | Purpose |
 | ---- | ------- |
 | `/app/index.html` | Browse and search items |
-| `/app/item.html?id=N` | Item detail, lifecycle history, claims, transitions |
+| `/app/item.html?id=N` | Item detail, lifecycle history, claims, transitions, possible matches |
 | `/app/report.html` | Report a lost/found item |
 | `/app/claims.html` | Claims on your items, and claims you filed |
 | `/app/login.html`, `register.html`, `verify.html` | Auth + OTP verification |
@@ -267,7 +319,7 @@ docker compose up -d
 python scripts/e2e_test.py
 ```
 
-It makes **33 assertions** and exits non-zero if any fails; screenshots land in
+It makes **35 assertions** and exits non-zero if any fails; screenshots land in
 `scripts/e2e_screenshots/`. A screenshot only proves a page rendered, so the
 assertions carry the actual proof.
 
@@ -303,7 +355,7 @@ Four native PostgreSQL enum types, three of them modelling core domain concepts:
 | -------------- | -------------------------------------------- | ---------- |
 | `item_status`  | `reported` → `matched` → `claimed` → `closed` | Where an item is in its lifecycle. `closed` is terminal; transitions are enforced in `app/lifecycle.py`, and every move is appended to `item_status_events`. |
 | `item_kind`    | `lost`, `found`                              | Whether the item was lost by someone or found by someone. Orthogonal to lifecycle — both kinds travel the same four states. This is what the original schema conflated into its status column. |
-| `claim_status` | `pending`, `approved`, `rejected`            | The state of one person's claim on one item. Approving a claim is what drives the item to `claimed`. |
+| `claim_status` | `pending`, `approved`, `rejected`            | The state of one person's claim on one item. Approving a claim is what drives the item to `claimed`; at most one claim per item may be `approved`. |
 | `otp_purpose`  | `registration`, `password_reset`             | Which flow a one-time code belongs to, so a registration code cannot be replayed against a password reset. |
 
 ### Foreign keys
@@ -316,6 +368,7 @@ Four native PostgreSQL enum types, three of them modelling core domain concepts:
 | `claims` | `item_id` | `items.id` | `CASCADE` |
 | `claims` | `claimant_id` | `users.id` | `CASCADE` |
 | `claims` | `decided_by_id` | `users.id` | `SET NULL` |
+| `claims` | `superseded_by_id` | `claims.id` | `SET NULL` |
 | `item_status_events` | `item_id` | `items.id` | `CASCADE` |
 | `item_status_events` | `actor_id` | `users.id` | `SET NULL` |
 | `notifications` | `user_id` / `item_id` | `users.id` / `items.id` | `CASCADE` |
@@ -324,7 +377,8 @@ Four native PostgreSQL enum types, three of them modelling core domain concepts:
 Deleting an item takes its claims, status history and notifications with it;
 deleting a *category* or *location* leaves items intact with a null reference.
 `claims` is further constrained by `UNIQUE (item_id, claimant_id)` — one claim
-per person per item.
+per person per item — and by the partial unique index
+`uq_claims_one_approved_per_item` on `(item_id) WHERE status = 'approved'`.
 
 ### Search indexing, and the evidence for it
 
@@ -460,7 +514,7 @@ With the compose stack running:
 
 ```bash
 TEST_DATABASE_URL=postgresql://lostfound:lostfound@localhost:5432/lostfound pytest -q
-# 61 passed
+# 155 passed
 ```
 
 Extra checks:

@@ -232,10 +232,17 @@ def main() -> int:
         shot(finder, "claim-form")
         finder.click('[data-testid="claim-submit"]')
         finder.wait_for_timeout(2000)
+        # The API value is 'matched'; the UI labels it "Claim pending".
         assert_that("filing a claim advanced the item to 'matched'",
-                    "matched" in finder.text_content('[data-testid="item-status"]').lower(),
+                    finder.get_attribute('[data-testid="item-status"] .pill', "data-value")
+                    == "matched",
+                    finder.text_content('[data-testid="item-status"]'))
+        assert_that("'matched' is shown as \"Claim pending\"",
+                    "claim pending" in finder.text_content('[data-testid="item-status"]').lower(),
                     finder.text_content('[data-testid="item-status"]'))
         assert_that("claim filed without a page navigation", finder.url == url_before)
+        assert_that("item page shows a 'Possible matches' section",
+                    finder.locator("[data-suggestions-panel]").is_visible())
         shot(finder, "item-matched")
 
         print("\nSTEP 8    owner: sees and approves the claim")
@@ -276,7 +283,7 @@ def main() -> int:
         assert_that("full lifecycle recorded (4 events)", events.count() == 4,
                     f"count={events.count()}")
         history = (owner.text_content('[data-testid="item-history"]') or "").lower()
-        for state in ("reported", "matched", "claimed", "closed"):
+        for state in ("reported", "claim pending", "claimed", "closed"):
             assert_that(f"history contains '{state}'", state in history)
         shot(owner, "item-closed")
 

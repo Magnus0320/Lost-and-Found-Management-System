@@ -34,7 +34,7 @@
     <div class="panel" data-owner-panel hidden>
       <h2 style="margin-top:0;font-size:17px">Lifecycle</h2>
       <p class="muted" style="font-size:14px">
-        Move this item along <code>reported &rarr; matched &rarr; claimed &rarr; closed</code>.
+        Move this item along <code>reported &rarr; claim pending &rarr; claimed &rarr; closed</code>.
         Only transitions the API allows are offered.
       </p>
       <div data-transition-buttons class="row" style="gap:8px"></div>
@@ -63,6 +63,13 @@
     <div class="panel" data-item-claims-panel hidden>
       <h2 style="margin-top:0;font-size:17px">Claims on this item</h2>
       <div data-item-claims></div>
+    </div>
+
+    <!-- Similar posts of the opposite kind: lost <-> found -->
+    <div class="panel" data-suggestions-panel hidden>
+      <h2 style="margin-top:0;font-size:17px">Possible matches</h2>
+      <p class="muted" style="font-size:14px;margin-top:0" data-suggestions-intro></p>
+      <div data-suggestions data-testid="item-suggestions"></div>
     </div>
 
     <div class="panel">

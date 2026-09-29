@@ -1,5 +1,5 @@
 import { api, auth, showError, clearError, showNotice, formData, qs, ApiError } from "../api.js";
-import { pill, esc, when, day, contactLine, statusWithContact } from "../ui.js";
+import { pill, esc, when, day, contactLine, statusWithContact, statusLabel } from "../ui.js";
 
 // Mirrors app/lifecycle.py ALLOWED_TRANSITIONS so the UI only offers moves the
 // API will accept. The API remains the authority: it re-validates every move.
@@ -22,6 +22,9 @@ const el = {
   claimsPanel: document.querySelector("[data-item-claims-panel]"),
   claims: document.querySelector("[data-item-claims]"),
   history: document.querySelector("[data-history]"),
+  suggestionsPanel: document.querySelector("[data-suggestions-panel]"),
+  suggestionsIntro: document.querySelector("[data-suggestions-intro]"),
+  suggestions: document.querySelector("[data-suggestions]"),
 };
 
 let current = null;
@@ -69,7 +72,7 @@ function renderItem(item) {
           .map(
             (s) =>
               `<button type="button" class="${s === "closed" ? "secondary" : ""}"
-                 data-transition="${s}" data-testid="transition-${s}">Mark ${s}</button>`
+                 data-transition="${s}" data-testid="transition-${s}">Mark ${esc(statusLabel(s).toLowerCase())}</button>`
           )
           .join("")
       : `<p class="muted">This item is closed. No further changes.</p>`;
@@ -87,6 +90,48 @@ function renderItem(item) {
   // Owner: claims filed on this item
   el.claimsPanel.hidden = !isOwner;
   if (isOwner) loadClaims();
+
+  loadSuggestions(item);
+}
+
+/** Open posts of the opposite kind that read like this one. Public data only:
+ *  the API never attaches contact details to a suggestion. */
+async function loadSuggestions(item) {
+  const other = item.kind === "lost" ? "found" : "lost";
+  el.suggestionsIntro.textContent =
+    item.kind === "lost"
+      ? "Found items that look like this one. If one is yours, open it and file a claim."
+      : "Lost reports that look like this item. The owner may be one of them.";
+  el.suggestionsPanel.hidden = false;
+
+  if (item.status === "closed") {
+    el.suggestions.innerHTML = `<p class="muted" data-testid="no-suggestions">This item is closed, so no matches are suggested.</p>`;
+    return;
+  }
+  try {
+    const { results } = await api.itemSuggestions(item.id);
+    el.suggestions.innerHTML = results.length
+      ? results.map(renderSuggestion).join("")
+      : `<p class="muted" data-testid="no-suggestions">No similar ${other} items yet. Check back later.</p>`;
+  } catch (err) {
+    showError(err);
+  }
+}
+
+function renderSuggestion(s) {
+  const meta = [
+    s.location ? s.location.name : null,
+    day(s.occurred_on),
+    ...s.reasons,
+  ].filter(Boolean);
+  return `
+    <a class="suggestion" href="/app/item.html?id=${s.id}" data-testid="suggestion">
+      <div class="spread">
+        <span class="name">${esc(s.name)}</span>
+        <span>${pill(s.status)} ${pill(s.kind)}</span>
+      </div>
+      <div class="meta">${meta.map(esc).join(" · ")}</div>
+    </a>`;
 }
 
 /** The viewer's own claim on this item -- its decision, and who to contact. */
@@ -168,7 +213,7 @@ el.buttons?.addEventListener("click", async (e) => {
   try {
     const updated = await api.transitionStatus(itemId, { to_status: btn.dataset.transition });
     renderItem(updated); // response is the full ItemDetailResponse
-    showNotice(`Status is now "${updated.status}".`, "ok");
+    showNotice(`Status is now "${statusLabel(updated.status)}".`, "ok");
   } catch (err) {
     showError(err);
     btn.disabled = false;
