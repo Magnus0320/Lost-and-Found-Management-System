@@ -99,6 +99,30 @@ itself on boot while using `--reload`.
 
 ---
 
+## Demo data
+
+A fresh deployment is empty. To give visitors something to browse, seed it with
+realistic campus data: 8 locations, 8 categories, 6 demo accounts, 25 lost and
+found items spread across every lifecycle state, and 8 claims (pending, approved
+and rejected).
+
+```bash
+docker compose exec api python scripts/seed_demo.py           # seed
+docker compose exec api python scripts/seed_demo.py --reset   # remove it again
+```
+
+The script goes through the service layer, so every item gets the same status
+history and notifications it would get through the API. It is safe to run
+repeatedly: anything already present is skipped. It prints the demo logins and
+their shared password (`campus-demo-2026`) at the end.
+
+The demo accounts all use `@example.com` addresses, so no real person is ever
+emailed. They are verified and are not admins. `--reset` deletes exactly those
+accounts, and their items, claims and notifications go with them by cascade.
+Locations and categories stay, because real items may use them too.
+
+---
+
 ## API
 
 | Method | Path                        | Purpose                              |
