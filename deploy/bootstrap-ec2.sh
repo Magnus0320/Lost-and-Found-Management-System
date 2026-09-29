@@ -32,6 +32,14 @@ ACME_EMAIL=""
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
+
+# Let's Encrypt rejects placeholder addresses such as admin@example.invalid,
+# so a hostname without a real contact email would boot with no certificate.
+if [ -n "$SITE_ADDRESS" ] && [ -z "$ACME_EMAIL" ]; then
+	echo "ACME_EMAIL must be a real address when SITE_ADDRESS is set" >&2
+	exit 1
+fi
+
 APP_DIR="/opt/lostfound"
 LOGIN_USER="ubuntu"
 

@@ -140,7 +140,7 @@ open only what you need.
 
 | Type | Port | Source | Why |
 |---|---|---|---|
-| SSH | 22 | **My IP** | Administration. Never `0.0.0.0/0`. |
+| SSH | 22 | `13.233.177.0/29` | EC2 Instance Connect in Mumbai (the browser Connect button). Never `0.0.0.0/0`. |
 | HTTP | 80 | Anywhere IPv4 | Visitors, and Let's Encrypt's domain check. |
 | HTTPS | 443 | Anywhere IPv4 | Visitors. |
 
@@ -220,6 +220,7 @@ Now that DNS resolves, let Caddy get a certificate.
 ```bash
 cd /opt/lostfound
 sudo sed -i 's|^SITE_ADDRESS=.*|SITE_ADDRESS=campus-lostfound.duckdns.org|' .env.prod
+sudo sed -i 's|^ACME_EMAIL=.*|ACME_EMAIL=you@example.com|' .env.prod   # must be a real address
 sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 sudo docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f caddy
 ```
