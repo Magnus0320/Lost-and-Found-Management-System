@@ -72,8 +72,11 @@
             <input type="checkbox" data-select-all data-testid="admin-select-all">
             Select all shown
           </label>
-          <button type="button" class="danger small" data-bulk-delete
-                  data-testid="admin-bulk-delete" disabled>Delete selected</button>
+          <span class="buttons">
+            <button type="button" class="danger small" data-bulk-delete
+                    data-testid="admin-bulk-delete" disabled>Delete selected</button>
+          </span>
+          <p class="row-status" data-row-status aria-live="polite"></p>
         </div>
         <div data-items data-testid="admin-items"></div>
         <div class="spread pager">

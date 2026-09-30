@@ -3,6 +3,10 @@ import { pill, esc, logDate, skeletonRows, emptyState } from "../ui.js";
 
 const PAGE = 50;
 
+// Where a row reports what happened to it. Always present (and live), so
+// screen readers announce the text when it changes; empty, it takes no space.
+const STATUS_SLOT = `<p class="row-status" data-row-status aria-live="polite"></p>`;
+
 if (requireLogin()) {
   const el = {
     denied: document.querySelector("[data-denied]"),
@@ -37,6 +41,7 @@ if (requireLogin()) {
   }
 
   function renderItems(data) {
+    disarmWithin(el.items, el.bulkDelete); // the rows (and the selection) are replaced
     lastItemTotal = data.total;
     el.items.innerHTML = data.results.length
       ? data.results
@@ -48,14 +53,17 @@ if (requireLogin()) {
             <span class="idno"><span class="sr-only">Select item </span>#${i.id}</span>
           </label>
           <div class="grow">
-            <a href="/app/item.html?id=${i.id}">${esc(i.name)}</a>
+            <a class="row-name" href="/app/item.html?id=${i.id}">${esc(i.name)}</a>
             ${pill(i.kind)} ${pill(i.status)}
             <div class="sub-line">
               ${esc(i.reporter.first_name)} ${esc(i.reporter.last_name)}
               (#${i.reporter.id}) · <span class="mono">${logDate(i.occurred_on)}</span>
             </div>
           </div>
-          <button type="button" class="danger small" data-del-item="${i.id}">Delete</button>
+          <span class="buttons">
+            <button type="button" class="danger small" data-del-item="${i.id}">Delete</button>
+          </span>
+          ${STATUS_SLOT}
         </div>`
           )
           .join("")
@@ -69,6 +77,7 @@ if (requireLogin()) {
   }
 
   function renderUsers(data) {
+    disarmWithin(el.users);
     const me = auth.user;
     el.users.innerHTML = data.results.length
       ? data.results
@@ -77,7 +86,7 @@ if (requireLogin()) {
         <div class="adminrow" data-testid="admin-user-row">
           <span class="idno">#${u.id}</span>
           <div class="grow">
-            ${esc(u.first_name)} ${esc(u.last_name)}
+            <span class="row-name">${esc(u.first_name)} ${esc(u.last_name)}</span>
             ${u.is_admin ? `<span class="pill chip tone-ok">admin</span>` : ""}
             ${u.is_verified ? "" : `<span class="pill chip tone-warn">unverified</span>`}
             <div class="sub-line">
@@ -94,6 +103,7 @@ if (requireLogin()) {
                  <button type="button" class="danger small" data-del-user="${u.id}"
                          ${u.is_admin ? "disabled title='Revoke admin first'" : ""}>Delete</button></span>`
           }
+          ${STATUS_SLOT}
         </div>`
           )
           .join("")
@@ -102,13 +112,17 @@ if (requireLogin()) {
   }
 
   function renderRefData(locations, categories) {
+    disarmWithin(el.locations, el.categories);
     el.locations.innerHTML = locations.results.length
       ? locations.results
           .map(
             (l) => `<div class="adminrow">
-              <div class="grow">${esc(l.name)}
+              <div class="grow"><span class="row-name">${esc(l.name)}</span>
                 ${l.building ? `<span class="muted small-text">(${esc(l.building)})</span>` : ""}</div>
-              <button type="button" class="danger small" data-del-location="${l.id}">Delete</button>
+              <span class="buttons">
+                <button type="button" class="danger small" data-del-location="${l.id}">Delete</button>
+              </span>
+              ${STATUS_SLOT}
             </div>`
           )
           .join("")
@@ -118,8 +132,11 @@ if (requireLogin()) {
       ? categories.results
           .map(
             (c) => `<div class="adminrow">
-              <div class="grow">${esc(c.name)}</div>
-              <button type="button" class="danger small" data-del-category="${c.id}">Delete</button>
+              <div class="grow"><span class="row-name">${esc(c.name)}</span></div>
+              <span class="buttons">
+                <button type="button" class="danger small" data-del-category="${c.id}">Delete</button>
+              </span>
+              ${STATUS_SLOT}
             </div>`
           )
           .join("")
@@ -134,6 +151,10 @@ if (requireLogin()) {
 
   async function loadUsers() {
     renderUsers(await api.adminUsers(userQuery));
+  }
+
+  async function refreshStats() {
+    renderStats(await api.adminStats());
   }
 
   async function refresh() {
@@ -161,69 +182,244 @@ if (requireLogin()) {
   }
 
   el.items.addEventListener("change", (e) => {
-    if (e.target.matches("[data-item-check]")) syncBulkButton();
+    if (!e.target.matches("[data-item-check]")) return;
+    if (armed?.btn === el.bulkDelete) disarm();
+    syncBulkButton();
   });
 
   el.selectAll.addEventListener("change", () => {
+    if (armed?.btn === el.bulkDelete) disarm();
     el.items
       .querySelectorAll("[data-item-check]")
       .forEach((c) => (c.checked = el.selectAll.checked));
     syncBulkButton();
   });
 
-  // --- actions ------------------------------------------------------------
+  // --- two-step delete ------------------------------------------------------
+  // No window.confirm(): the first click arms the button in place -- it turns
+  // into "Confirm delete" with a Cancel beside it, and a hint in the row says
+  // what will go. Only a second click deletes. It disarms by itself after
+  // CONFIRM_MS, on Cancel or Escape, or when another Delete is armed.
+  //
+  // Results are reported next to the row, not only in the notice at the top,
+  // which is out of view once the admin has scrolled down. A deleted row stays
+  // put, struck through, until the next refresh, so the message stays with it.
+
+  const CONFIRM_MS = 5000;
+  let armed = null; // { btn, cancel, label, timer }
+
+  function statusSlot(anchor) {
+    return anchor.closest(".adminrow, .toolbar")?.querySelector("[data-row-status]");
+  }
+
+  function setRowStatus(anchor, text, tone) {
+    const slot = statusSlot(anchor);
+    if (!slot) return null;
+    slot.textContent = text || "";
+    slot.dataset.tone = tone || "";
+    return slot;
+  }
+
+  function arm(btn, { confirmLabel = "Confirm delete", hint }) {
+    disarm();
+    clearError();
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "secondary small";
+    cancel.textContent = "Cancel";
+    cancel.dataset.cancelDelete = "";
+    btn.after(cancel);
+    armed = { btn, cancel, label: btn.textContent.trim(), timer: setTimeout(disarm, CONFIRM_MS) };
+    btn.textContent = confirmLabel;
+    btn.classList.add("armed");
+    setRowStatus(btn, `${hint} Confirm within ${CONFIRM_MS / 1000} seconds, or cancel.`, "hint");
+  }
+
+  /** Put an armed button back as it was. Returns it, or null if none was armed. */
+  function disarm() {
+    if (!armed) return null;
+    const { btn, cancel, label, timer } = armed;
+    armed = null;
+    clearTimeout(timer);
+    const hadFocus = cancel === document.activeElement;
+    cancel.remove();
+    btn.textContent = label;
+    btn.classList.remove("armed");
+    if (statusSlot(btn)?.dataset.tone === "hint") setRowStatus(btn, "", "");
+    if (hadFocus) btn.focus(); // keyboard users keep their place
+    return btn;
+  }
+
+  /** Disarm if the armed button is about to be re-rendered away. */
+  function disarmWithin(...containers) {
+    if (armed && containers.some((c) => c === armed.btn || c.contains(armed.btn))) disarm();
+  }
+
+  /** The second click: stop the countdown and show that work is under way. */
+  function commit(btn) {
+    const { cancel, label, timer } = armed;
+    armed = null;
+    clearTimeout(timer);
+    cancel.remove();
+    btn.classList.remove("armed");
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+    setRowStatus(btn, "", "");
+    return label;
+  }
+
+  function restore(btn, label) {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+
+  /** Mark a row as deleted in place, with the message beside it. */
+  function markDeleted(row, message, { focus = true } = {}) {
+    row.classList.add("is-deleted");
+    row.querySelector(".buttons")?.remove();
+    const check = row.querySelector("[data-item-check]");
+    if (check) {
+      check.checked = false;
+      check.disabled = true;
+      check.removeAttribute("data-item-check"); // out of select-all and bulk delete
+    }
+    row.querySelectorAll(".grow a").forEach((a) => {
+      const span = document.createElement("span");
+      span.className = a.className;
+      span.textContent = a.textContent;
+      a.replaceWith(span);
+    });
+    const slot = setRowStatus(row, message, "ok");
+    if (focus && slot) {
+      slot.tabIndex = -1; // the button that had focus is gone; land on the result
+      slot.focus();
+    }
+  }
+
+  function failed(btn, label, err) {
+    restore(btn, label);
+    setRowStatus(btn, err.message, "error");
+    showError(err);
+    btn.focus();
+  }
+
+  const DELETES = {
+    delItem: {
+      hint: (id) => `Item #${id} will be deleted for good.`,
+      run: (id) => api.adminDeleteItem(id),
+      done: (id) => `Item #${id} deleted.`,
+      after: () => refreshStats(),
+    },
+    delUser: {
+      hint: (id) => `Account #${id} and everything it reported will be deleted.`,
+      run: (id) => api.adminDeleteUser(id),
+      done: (id) => `Account #${id} deleted.`,
+      // Its items went with it (ON DELETE CASCADE), so the item list is stale.
+      after: () => Promise.all([refreshStats(), loadItems()]),
+    },
+    delLocation: {
+      hint: () => "This location will be deleted. Items keep existing without it.",
+      run: (id) => api.adminDeleteLocation(id),
+      done: () => "Location deleted.",
+    },
+    delCategory: {
+      hint: () => "This category will be deleted. Items keep existing without it.",
+      run: (id) => api.adminDeleteCategory(id),
+      done: () => "Category deleted.",
+    },
+  };
+
+  async function deleteRow(btn, key) {
+    const spec = DELETES[key];
+    const id = btn.dataset[key];
+    if (armed?.btn !== btn) {
+      arm(btn, { hint: spec.hint(id) });
+      return;
+    }
+    const label = commit(btn);
+    const row = btn.closest(".adminrow");
+    try {
+      await spec.run(id);
+    } catch (err) {
+      failed(btn, label, err);
+      return;
+    }
+    const message = spec.done(id);
+    markDeleted(row, message);
+    showNotice(message, "ok");
+    try {
+      if (spec.after) await spec.after();
+    } catch (err) {
+      showError(err); // the delete itself went through
+    }
+  }
 
   el.bulkDelete.addEventListener("click", async () => {
+    const btn = el.bulkDelete;
     const ids = checked();
     if (!ids.length) return;
-    if (!confirm(`Delete ${ids.length} item(s)? This cannot be undone.`)) return;
-    el.bulkDelete.disabled = true;
-    try {
-      const res = await api.adminBulkDeleteItems(ids);
-      await refresh();
-      showNotice(res.detail, "ok");
-    } catch (err) {
-      showError(err);
-    } finally {
-      syncBulkButton();
+    if (armed?.btn !== btn) {
+      arm(btn, {
+        confirmLabel: `Confirm delete (${ids.length})`,
+        hint: `${ids.length} item(s) will be deleted for good.`,
+      });
+      return;
     }
+    const label = commit(btn);
+    let res;
+    try {
+      res = await api.adminBulkDeleteItems(ids);
+    } catch (err) {
+      failed(btn, label, err);
+      syncBulkButton();
+      return;
+    }
+    for (const id of ids) {
+      const row = el.items.querySelector(`[data-item-check][value="${id}"]`)?.closest(".adminrow");
+      if (row) markDeleted(row, `Item #${id} deleted.`, { focus: false });
+    }
+    el.selectAll.checked = false;
+    restore(btn, label);
+    syncBulkButton();
+    const slot = setRowStatus(btn, res.detail, "ok");
+    slot.tabIndex = -1;
+    slot.focus();
+    showNotice(res.detail, "ok");
+    refreshStats().catch((err) => showError(err));
   });
 
-  document.addEventListener("click", async (e) => {
-    const btn = e.target.closest(
-      "[data-del-item],[data-del-user],[data-role],[data-del-location],[data-del-category]"
-    );
-    if (!btn) return;
+  async function changeRole(btn) {
     clearError();
     const d = btn.dataset;
+    btn.disabled = true;
     try {
-      btn.disabled = true;
-      if (d.delItem) {
-        if (!confirm(`Delete item #${d.delItem}?`)) return;
-        await api.adminDeleteItem(d.delItem);
-        showNotice(`Item #${d.delItem} deleted.`, "ok");
-      } else if (d.delUser) {
-        if (!confirm(`Delete account #${d.delUser} and everything it reported?`)) return;
-        await api.adminDeleteUser(d.delUser);
-        showNotice(`Account #${d.delUser} deleted.`, "ok");
-      } else if (d.role) {
-        await api.adminSetRole(d.role, { is_admin: d.make === "true" });
-        showNotice(d.make === "true" ? "Admin access granted." : "Admin access revoked.", "ok");
-      } else if (d.delLocation) {
-        if (!confirm("Delete this location? Items keep existing without it.")) return;
-        await api.adminDeleteLocation(d.delLocation);
-        showNotice("Location deleted.", "ok");
-      } else if (d.delCategory) {
-        if (!confirm("Delete this category? Items keep existing without it.")) return;
-        await api.adminDeleteCategory(d.delCategory);
-        showNotice("Category deleted.", "ok");
-      }
+      await api.adminSetRole(d.role, { is_admin: d.make === "true" });
+      showNotice(d.make === "true" ? "Admin access granted." : "Admin access revoked.", "ok");
       await refresh();
     } catch (err) {
       showError(err);
     } finally {
       btn.disabled = false;
     }
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-cancel-delete]")) {
+      disarm()?.focus();
+      return;
+    }
+    const role = e.target.closest("[data-role]");
+    if (role) {
+      changeRole(role);
+      return;
+    }
+    const btn = e.target.closest("[data-del-item],[data-del-user],[data-del-location],[data-del-category]");
+    if (!btn) return;
+    deleteRow(btn, Object.keys(DELETES).find((k) => k in btn.dataset));
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && armed) disarm()?.focus();
   });
 
   // --- filters and paging -------------------------------------------------
@@ -270,9 +466,10 @@ if (requireLogin()) {
     try { await loadItems(); } catch (err) { showError(err); }
   });
 
-  document.querySelector("[data-refresh]").addEventListener("click", () =>
-    refresh().catch((err) => showError(err))
-  );
+  document.querySelector("[data-refresh]").addEventListener("click", () => {
+    disarm();
+    refresh().catch((err) => showError(err));
+  });
 
   // --- boot ---------------------------------------------------------------
   el.items.innerHTML = skeletonRows(3);
